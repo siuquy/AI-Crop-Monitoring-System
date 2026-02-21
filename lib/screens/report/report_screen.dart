@@ -1,4 +1,5 @@
 import 'package:acmms/screens/report/report_detail_screen.dart';
+import 'package:acmms/screens/report/report_view_screen.dart';
 import 'package:acmms/shared/app_bottom_navbar.dart';
 import 'package:acmms/shared/bottom_tab.dart';
 import 'package:flutter/material.dart';
@@ -136,10 +137,13 @@ class _ReportScreenState extends State<ReportScreen>
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => ReportDetailScreen(
+                  builder: (_) => ReportViewDetailScreen(
                     imagePath: report.imageAsset,
+                    title: report.title,
                     diseaseName: report.disease,
-                    confidence: 0.92,
+                    level: _getLevelFromStatus(report.status),
+                    date: report.time,
+                    status: report.status,
                   ),
                 ),
               );
@@ -208,6 +212,17 @@ class _ReportScreenState extends State<ReportScreen>
         currentTab: BottomTab.home,
       ),
     );
+  }
+
+  String _getLevelFromStatus(ReportStatus status) {
+    switch (status) {
+      case ReportStatus.approved:
+        return "Nhẹ";
+      case ReportStatus.pending:
+        return "Trung bình";
+      case ReportStatus.needMoreInfo:
+        return "Nghiêm trọng";
+    }
   }
 
   Widget _buildStatusBadge(ReportStatus status) {
