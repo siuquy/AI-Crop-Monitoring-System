@@ -208,7 +208,7 @@ class _ReportScreenState extends State<ReportScreen>
         },
       ),
       bottomNavigationBar: const AppBottomNav(
-        currentTab: BottomTab.home,
+        currentTab: BottomTab.report,
       ),
     );
   }

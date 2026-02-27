@@ -29,6 +29,8 @@ class AppBottomNav extends StatelessWidget {
         page = const TaskListScreen();
         break;
       case BottomTab.scan:
+        page = const CameraScanScreen();
+        break;
       case BottomTab.report:
         page = const ReportScreen();
         break;
