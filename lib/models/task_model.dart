@@ -1,36 +1,24 @@
 import 'package:flutter/material.dart';
 
-enum TaskStatus {
-  urgent,
-  doing,
-  pending,
-  completed,
-}
+enum TaskStatus { doing, pending, completed, urgent }
 
 class TaskModel {
   final String id;
-
   final String title;
   final String description;
   final String taskType;
-
   final String cropName;
   final String season;
-
   final String field;
   final String area;
   final String bed;
-
   final String startTime;
   final String endTime;
   final String date;
-
   final TaskStatus status;
   final bool isUrgent;
-
   final String assignedBy;
   final String assignedRole;
-
   final IconData avatarIcon;
   final String imageAsset;
 
@@ -55,7 +43,19 @@ class TaskModel {
     required this.imageAsset,
   });
 
-  String get fullLocation => '$field – $area – $bed';
+  // 🔥 THÊM 2 GETTER NÀY
 
-  String get timeRange => '$startTime – $endTime';
+  String get fullLocation {
+    if (bed.isNotEmpty) {
+      return '$field - $area - $bed';
+    }
+    return '$field - $area';
+  }
+
+  String get timeRange {
+    if (endTime.isEmpty) {
+      return startTime;
+    }
+    return '$startTime - $endTime';
+  }
 }

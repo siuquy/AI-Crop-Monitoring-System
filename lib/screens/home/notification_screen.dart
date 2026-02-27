@@ -3,70 +3,70 @@ import 'package:flutter/material.dart';
 const Color primaryTeal = Color(0xFF1FCFC5);
 const Color bgColor = Color(0xFFF6F8F7);
 
-class NotificationScreen extends StatelessWidget {
+class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
 
-  static final List<_NotificationData> notifications = [
+  @override
+  State<NotificationScreen> createState() => _NotificationScreenState();
+}
+
+class _NotificationScreenState extends State<NotificationScreen> {
+  final List<_NotificationData> notifications = [
     _NotificationData(
       icon: Icons.bug_report,
-      iconBg: Color(0xFFFFEDED),
+      iconBg: const Color(0xFFFFEDED),
       iconColor: Colors.red,
       title: 'Phát hiện rầy nâu tại Khu A',
-      description:
-          'AI nhận diện mật độ cao, cần kiểm tra ngay lập tức để tránh lây lan.',
+      description: 'AI nhận diện mật độ cao, cần kiểm tra ngay lập tức.',
       time: '5 phút trước',
+      type: 'report',
+      referenceId: 'report_1',
       unread: true,
-    ),
-    _NotificationData(
-      icon: Icons.warning_amber_rounded,
-      iconBg: Color(0xFFFFF3E0),
-      iconColor: Colors.orange,
-      title: 'Nghi ngờ bệnh đạo ôn lá',
-      description: 'Scan hình ảnh lá lúa tại Khu C cho thấy dấu hiệu sớm.',
-      time: '20 phút trước',
-      unread: true,
-    ),
-    _NotificationData(
-      icon: Icons.water_drop,
-      iconBg: Color(0xFFE0F7FA),
-      iconColor: primaryTeal,
-      title: 'Nhiệm vụ "Tưới nước" sắp hết hạn',
-      description: 'Khu vực B chưa hoàn thành tưới tiêu theo lịch trình.',
-      time: '30 phút trước',
-    ),
-    _NotificationData(
-      icon: Icons.cloud,
-      iconBg: Color(0xFFE3F2FD),
-      iconColor: Colors.blue,
-      title: 'Cảnh báo mưa lớn chiều nay',
-      description: 'Dự báo lượng mưa 50mm, hãy che chắn khu vật tư.',
-      time: '1 giờ trước',
-    ),
-    _NotificationData(
-      icon: Icons.check_circle,
-      iconBg: Color(0xFFE8F5E9),
-      iconColor: Colors.green,
-      title: 'Chuyên gia đã nhận xét báo cáo',
-      description: 'Bệnh đạo ôn cần xử lý thuốc X theo liều lượng.',
-      time: '3 giờ trước',
     ),
     _NotificationData(
       icon: Icons.task_alt,
-      iconBg: Color(0xFFF3E5F5),
+      iconBg: const Color(0xFFF3E5F5),
       iconColor: Colors.deepPurple,
       title: 'Nhiệm vụ mới được phân công',
-      description: 'Bạn được phân công kiểm tra khu vực D vào sáng mai.',
+      description: 'Bạn được phân công kiểm tra khu vực D.',
       time: '5 giờ trước',
-    ),
-    _NotificationData(
-      icon: Icons.update,
-      iconBg: Color(0xFFE1F5FE),
-      iconColor: Colors.lightBlue,
-      title: 'Cập nhật lịch chăm sóc',
-      description: 'Lịch bón phân khu A đã được điều chỉnh.',
-      time: 'Hôm qua',
+      type: 'task',
+      referenceId: 'task_1',
+      unread: true,
     ),
   ];
+
+  void _handleTap(_NotificationData item) {
+    setState(() {
+      item.unread = false;
+    });
+
+    switch (item.type) {
+      case 'task':
+        Navigator.pushNamed(
+          context,
+          '/taskDetail',
+          arguments: item.referenceId,
+        );
+        break;
+
+      case 'report':
+        Navigator.pushNamed(
+          context,
+          '/reportDetail',
+          arguments: item.referenceId,
+        );
+        break;
+    }
+  }
+
+  void _markAllAsRead() {
+    setState(() {
+      for (var n in notifications) {
+        n.unread = false;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,36 +86,36 @@ class NotificationScreen extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: Center(
-              child: Text(
-                'Đánh dấu đã đọc',
-                style: TextStyle(
-                  color: primaryTeal,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
+        actions: [
+          TextButton(
+            onPressed: _markAllAsRead,
+            child: const Text(
+              'Đánh dấu đã đọc',
+              style: TextStyle(
+                color: primaryTeal,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
             ),
           )
         ],
       ),
-
       body: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: notifications.length,
         itemBuilder: (context, index) {
           final item = notifications[index];
-          return _NotificationItem(
-            icon: item.icon,
-            iconBg: item.iconBg,
-            iconColor: item.iconColor,
-            title: item.title,
-            description: item.description,
-            time: item.time,
-            unread: item.unread,
+          return GestureDetector(
+            onTap: () => _handleTap(item),
+            child: _NotificationItem(
+              icon: item.icon,
+              iconBg: item.iconBg,
+              iconColor: item.iconColor,
+              title: item.title,
+              description: item.description,
+              time: item.time,
+              unread: item.unread,
+            ),
           );
         },
       ),
@@ -130,7 +130,9 @@ class _NotificationData {
   final String title;
   final String description;
   final String time;
-  final bool unread;
+  final String type; // task | report
+  final String referenceId;
+  bool unread;
 
   _NotificationData({
     required this.icon,
@@ -139,6 +141,8 @@ class _NotificationData {
     required this.title,
     required this.description,
     required this.time,
+    required this.type,
+    required this.referenceId,
     this.unread = false,
   });
 }
@@ -168,7 +172,7 @@ class _NotificationItem extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: unread ? const Color(0xFFEFFFFE) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(

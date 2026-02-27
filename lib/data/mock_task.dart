@@ -114,4 +114,6 @@ final List<ReportModel> mockReports = [
     imageAsset: 'assets/task/sick.jpg',
     status: ReportStatus.needMoreInfo,
   ),
+  
 ];
+

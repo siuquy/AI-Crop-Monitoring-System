@@ -1,4 +1,3 @@
-import 'package:acmms/screens/report/report_detail_screen.dart';
 import 'package:acmms/screens/report/report_view_screen.dart';
 import 'package:acmms/shared/app_bottom_navbar.dart';
 import 'package:acmms/shared/bottom_tab.dart';

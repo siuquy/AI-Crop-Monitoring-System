@@ -1,3 +1,4 @@
+import 'package:acmms/screens/features/auth/worker_login.dart';
 import 'package:acmms/shared/app_bottom_navbar.dart';
 import 'package:acmms/shared/bottom_tab.dart';
 import 'package:flutter/material.dart';
@@ -51,7 +52,7 @@ class SettingsScreen extends StatelessWidget {
             onTap: () => _go(context, const AboutAppScreen()),
           ),
           const SizedBox(height: 24),
-          _logoutButton(),
+          _logoutButton(context),
         ],
       ),
       bottomNavigationBar: const AppBottomNav(currentTab: BottomTab.setting),
@@ -130,7 +131,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _logoutButton() {
+  Widget _logoutButton(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -143,10 +144,13 @@ class SettingsScreen extends StatelessWidget {
         ),
         title: const Text(
           'Đăng xuất',
-          style: TextStyle(color: Colors.red),
+          style: TextStyle(
+            color: Colors.red,
+          ),
+          textAlign: TextAlign.center,
         ),
         onTap: () {
-          // TODO: xử lý logout
+          _showLogoutDialog(context);
         },
       ),
     );
@@ -156,6 +160,38 @@ class SettingsScreen extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => page),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Xác nhận'),
+        content: const Text('Bạn có chắc muốn đăng xuất?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Huỷ'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) => const LoginScreen(),
+                ),
+                (route) => false,
+              );
+            },
+            child: const Text(
+              'Đăng xuất',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

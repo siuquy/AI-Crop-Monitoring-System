@@ -25,7 +25,7 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 24),
             _infoRow('Số điện thoại', '0909 123 456'),
             _infoRow('Khu làm việc', 'Ruộng A – Khu 2'),
-            _infoRow('Tài khoản cấp bởi', 'Owner'),
+            _infoRow('Tài khoản cấp bởi', 'Chủ nông trại'),
           ],
         ),
       ),

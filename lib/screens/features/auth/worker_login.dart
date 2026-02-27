@@ -1,4 +1,5 @@
 import 'package:acmms/screens/home/home_screen.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 const Color primaryTeal = Color(0xFF1FCFC5);
@@ -20,28 +21,34 @@ class _LoginScreenState extends State<LoginScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _emailController =
+      TextEditingController(text: mockEmail);
+  final TextEditingController _passwordController =
+      TextEditingController(text: mockPassword);
+
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
     super.initState();
 
-    _emailController.text = mockEmail;
-    _passwordController.text = mockPassword;
-    
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
 
-    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(_controller);
+    _fadeAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
+      begin: const Offset(0, 0.15),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    ));
 
     _controller.forward();
   }
@@ -54,28 +61,35 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  void _handleLogin() async {
+  // ================= LOGIN =================
+
+  Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    await Future.delayed(const Duration(seconds: 1));
+
+    if (!mounted) return;
+
+    setState(() => _isLoading = false);
+
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (email.isEmpty || password.isEmpty) {
-      _showMessage('Vui lòng nhập đầy đủ thông tin');
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 1));
-    setState(() => _isLoading = false);
-
     if (email == mockEmail && password == mockPassword) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => const HomeScreen(),
-        ),
-      );
+      _navigateToHome();
     } else {
       _showMessage('Sai email hoặc mật khẩu');
     }
+  }
+
+  void _navigateToHome() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => const HomeScreen(),
+      ),
+    );
   }
 
   void _showMessage(String message, {bool success = false}) {
@@ -88,11 +102,13 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
+  // ================= BUILD =================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: Color.fromARGB(255, 136, 255, 195),
+      backgroundColor: const Color(0xFFEFFFF9),
       body: SafeArea(
         child: AnimatedPadding(
           duration: const Duration(milliseconds: 250),
@@ -106,103 +122,141 @@ class _LoginScreenState extends State<LoginScreen>
               opacity: _fadeAnimation,
               child: SlideTransition(
                 position: _slideAnimation,
-                child: Column(
-                  children: [
-                    const SizedBox(height: 48),
-                    Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [primaryTeal, darkTeal],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 60),
+
+                      // ===== LOGO =====
+                      _buildLogo(),
+
+                      const SizedBox(height: 28),
+
+                      const Text(
+                        'Đăng nhập',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
                         ),
-                        borderRadius: BorderRadius.circular(22),
-                        boxShadow: [
-                          BoxShadow(
-                            color: primaryTeal.withOpacity(0.35),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      const Text(
+                        'Truy cập hệ thống quản lý nông nghiệp',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          color: Colors.black54,
+                        ),
+                      ),
+
+                      const SizedBox(height: 40),
+
+                      // ===== EMAIL =====
+                      _InputField(
+                        controller: _emailController,
+                        hint: 'Email',
+                        icon: Icons.email_outlined,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Vui lòng nhập email';
+                          }
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // ===== PASSWORD =====
+                      _InputField(
+                        controller: _passwordController,
+                        hint: 'Mật khẩu',
+                        icon: Icons.lock_outline,
+                        obscureText: _obscurePassword,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                            color: primaryTeal,
                           ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.agriculture_outlined,
-                        color: Colors.white,
-                        size: 36,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Đăng nhập',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Truy cập hệ thống quản lý nông nghiệp',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14.5,
-                        color: Colors.black54,
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    _InputField(
-                      controller: _emailController,
-                      hint: 'Email',
-                      icon: Icons.email_outlined,
-                    ),
-                    const SizedBox(height: 16),
-                    _InputField(
-                      controller: _passwordController,
-                      hint: 'Mật khẩu',
-                      icon: Icons.lock_outline,
-                      obscureText: true,
-                    ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {},
-                        child: const Text(
-                          'Quên mật khẩu?',
-                          style: TextStyle(color: primaryTeal),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
                         ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Vui lòng nhập mật khẩu';
+                          }
+                          return null;
+                        },
                       ),
-                    ),
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _handleLogin,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryTeal,
-                          elevation: 6,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(28),
+
+                      const SizedBox(height: 12),
+
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () {},
+                          child: const Text(
+                            'Quên mật khẩu?',
+                            style: TextStyle(color: primaryTeal),
                           ),
                         ),
-                        child: _isLoading
-                            ? const CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              )
-                            : const Text(
-                                'Đăng nhập',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // ===== LOGIN BUTTON =====
+                      SizedBox(
+                        width: double.infinity,
+                        height: 54,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _handleLogin,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryTeal,
+                            elevation: 6,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                          ),
+                          child: _isLoading
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                )
+                              : const Text(
+                                  'Đăng nhập',
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 32),
-                  ],
+
+                      const SizedBox(height: 16),
+
+                      // ===== DEV LOGIN (CHỈ DEBUG) =====
+                      if (kDebugMode)
+                        TextButton(
+                          onPressed: _navigateToHome,
+                          child: const Text(
+                            'Dev Login (Bỏ qua xác thực)',
+                            style: TextStyle(
+                              color: Colors.redAccent,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+
+                      const SizedBox(height: 40),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -211,29 +265,64 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
+
+  Widget _buildLogo() {
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [primaryTeal, darkTeal],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: primaryTeal.withOpacity(0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: const Icon(
+        Icons.agriculture_outlined,
+        color: Colors.white,
+        size: 40,
+      ),
+    );
+  }
 }
+
+// ================= INPUT FIELD =================
 
 class _InputField extends StatelessWidget {
   final String hint;
   final IconData icon;
   final bool obscureText;
   final TextEditingController controller;
+  final Widget? suffixIcon;
+  final String? Function(String?)? validator;
 
   const _InputField({
     required this.hint,
     required this.icon,
     required this.controller,
     this.obscureText = false,
+    this.suffixIcon,
+    this.validator,
   });
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
+    return TextFormField(
       controller: controller,
       obscureText: obscureText,
+      validator: validator,
       decoration: InputDecoration(
         hintText: hint,
         prefixIcon: Icon(icon, color: primaryTeal),
+        suffixIcon: suffixIcon,
         filled: true,
         fillColor: Colors.grey.shade100,
         contentPadding: const EdgeInsets.symmetric(vertical: 18),

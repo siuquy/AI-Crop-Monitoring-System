@@ -1,13 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:acmms/models/task_model.dart';
 
-class TaskDetailScreen extends StatelessWidget {
+class TaskDetailScreen extends StatefulWidget {
   final TaskModel task;
 
   const TaskDetailScreen({
     super.key,
     required this.task,
   });
+
+  @override
+  State<TaskDetailScreen> createState() => _TaskDetailScreenState();
+}
+
+class _TaskDetailScreenState extends State<TaskDetailScreen> {
+  final TextEditingController _updateController = TextEditingController();
+  bool _isCompleted = false;
+
+  TaskModel get task => widget.task;
+
+  @override
+  void dispose() {
+    _updateController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,12 +44,14 @@ class TaskDetailScreen extends StatelessWidget {
             const SizedBox(height: 16),
             _buildUpdateSection(),
             const SizedBox(height: 16),
-            _buildActionButtons(context),
+            _buildActionButtons(),
           ],
         ),
       ),
     );
   }
+
+  // ================= HEADER =================
 
   Widget _buildTaskHeader() {
     return Container(
@@ -90,6 +108,8 @@ class TaskDetailScreen extends StatelessWidget {
     );
   }
 
+  // ================= UPDATE SECTION =================
+
   Widget _buildUpdateSection() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -103,6 +123,7 @@ class TaskDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           TextField(
+            controller: _updateController,
             maxLines: 3,
             decoration: InputDecoration(
               hintText: 'Ví dụ: đã phun xong 2 luống đầu...',
@@ -113,7 +134,12 @@ class TaskDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
-            onPressed: () {},
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Chức năng thêm ảnh đang phát triển')),
+              );
+            },
             icon: const Icon(Icons.camera_alt),
             label: const Text('Thêm ảnh hiện trường'),
           ),
@@ -122,7 +148,9 @@ class TaskDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButtons(BuildContext context) {
+  // ================= ACTION BUTTONS =================
+
+  Widget _buildActionButtons() {
     return Column(
       children: [
         ElevatedButton.icon(
@@ -133,7 +161,7 @@ class TaskDetailScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
           ),
-          onPressed: () {},
+          onPressed: _saveUpdate,
           icon: const Icon(Icons.save),
           label: const Text('Ghi nhận công việc'),
         ),
@@ -145,13 +173,15 @@ class TaskDetailScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
           ),
-          onPressed: () {},
+          onPressed: _markAsCompleted,
           icon: const Icon(Icons.check_circle),
           label: const Text('Đánh dấu hoàn thành'),
         ),
       ],
     );
   }
+
+  // ================= HELPERS =================
 
   Widget _buildTags() {
     return Wrap(
@@ -267,5 +297,32 @@ class TaskDetailScreen extends StatelessWidget {
       case TaskStatus.urgent:
         return Colors.red;
     }
+  }
+
+  // ================= ACTION LOGIC =================
+
+  void _saveUpdate() {
+    if (_updateController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng nhập nội dung cập nhật')),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Đã ghi nhận cập nhật')),
+    );
+
+    _updateController.clear();
+  }
+
+  void _markAsCompleted() {
+    setState(() {
+      _isCompleted = true;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Đã đánh dấu hoàn thành')),
+    );
   }
 }
