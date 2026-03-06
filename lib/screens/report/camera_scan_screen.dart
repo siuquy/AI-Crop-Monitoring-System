@@ -3,7 +3,18 @@ import 'package:flutter/material.dart';
 import 'scan_result_screen.dart';
 
 class CameraScanScreen extends StatefulWidget {
-  const CameraScanScreen({super.key});
+  final String farm;
+  final String field;
+  final String area;
+  final String row;
+
+  const CameraScanScreen({
+    super.key,
+    required this.farm,
+    required this.field,
+    required this.area,
+    required this.row,
+  });
 
   @override
   State<CameraScanScreen> createState() => _CameraScanScreenState();
@@ -22,6 +33,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
 
   Future<void> _initCamera() async {
     final cameras = await availableCameras();
+
     final backCamera =
         cameras.firstWhere((c) => c.lensDirection == CameraLensDirection.back);
 
@@ -32,6 +44,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
     );
 
     await _controller!.initialize();
+
     if (mounted) setState(() {});
   }
 
@@ -53,6 +66,10 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
           imagePath: image.path,
           diseaseName: 'Bệnh đạo ôn',
           confidence: 0.95,
+          farm: widget.farm,
+          field: widget.field,
+          area: widget.area,
+          row: widget.row,
         ),
       ),
     );
@@ -72,6 +89,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
       body: Stack(
         children: [
           CameraPreview(_controller!),
+
           Center(
             child: Container(
               width: 260,
@@ -85,6 +103,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
               ),
             ),
           ),
+
           Positioned(
             bottom: 140,
             left: 0,
@@ -103,6 +122,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
               ],
             ),
           ),
+
           Positioned(
             bottom: 40,
             left: 0,
@@ -120,8 +140,11 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                       width: 4,
                     ),
                   ),
-                  child: const Icon(Icons.camera,
-                      color: Color(0xFF1FCFC5), size: 30),
+                  child: const Icon(
+                    Icons.camera,
+                    color: Color(0xFF1FCFC5),
+                    size: 30,
+                  ),
                 ),
               ),
             ),

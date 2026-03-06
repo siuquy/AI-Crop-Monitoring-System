@@ -3,6 +3,8 @@ import 'package:acmms/shared/app_bottom_navbar.dart';
 import 'package:acmms/shared/bottom_tab.dart';
 import 'package:flutter/material.dart';
 
+const Color primaryTeal = Color(0xFF1FCFC5);
+
 enum ReportStatus {
   approved,
   pending,
@@ -15,6 +17,7 @@ class ReportModel {
   final String time;
   final String imageAsset;
   final ReportStatus status;
+  final String? ownerComment;
 
   ReportModel({
     required this.title,
@@ -22,6 +25,7 @@ class ReportModel {
     required this.time,
     required this.imageAsset,
     required this.status,
+    this.ownerComment,
   });
 }
 
@@ -35,13 +39,6 @@ class ReportScreen extends StatefulWidget {
 class _ReportScreenState extends State<ReportScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  final List<String> tabs = [
-    'Tất cả',
-    'Chờ duyệt',
-    'Đã duyệt',
-    'Yêu cầu bổ sung',
-  ];
 
   final List<ReportModel> reports = [
     ReportModel(
@@ -64,12 +61,17 @@ class _ReportScreenState extends State<ReportScreen>
       time: '14:20 - 19/10/2023',
       imageAsset: 'assets/task/sick.jpg',
       status: ReportStatus.needMoreInfo,
+      ownerComment:
+          'Ảnh chưa rõ khu vực lá bị bệnh, vui lòng chụp cận cảnh hơn.',
     ),
   ];
 
   @override
   void initState() {
-    _tabController = TabController(length: tabs.length, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() {
+      setState(() {});
+    });
     super.initState();
   }
 
@@ -143,6 +145,7 @@ class _ReportScreenState extends State<ReportScreen>
                     level: _getLevelFromStatus(report.status),
                     date: report.time,
                     status: report.status,
+                    ownerComment: report.ownerComment,
                   ),
                 ),
               );
@@ -238,7 +241,7 @@ class _ReportScreenState extends State<ReportScreen>
         text = 'Chờ duyệt';
         break;
       case ReportStatus.needMoreInfo:
-        color = Colors.red;
+        color = Colors.purple;
         text = 'Yêu cầu bổ sung';
         break;
     }

@@ -1,5 +1,6 @@
 import 'package:acmms/screens/profile/settings_screen.dart';
 import 'package:acmms/screens/report/camera_scan_screen.dart';
+import 'package:acmms/screens/report/location_input_screen.dart';
 import 'package:acmms/screens/report/report_screen.dart';
 import 'package:flutter/material.dart';
 import 'bottom_tab.dart';
@@ -29,7 +30,7 @@ class AppBottomNav extends StatelessWidget {
         page = const TaskListScreen();
         break;
       case BottomTab.scan:
-        page = const CameraScanScreen();
+        page = const LocationInputScreen();
         break;
       case BottomTab.report:
         page = const ReportScreen();
@@ -129,7 +130,7 @@ class AppBottomNav extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => const CameraScanScreen(),
+        builder: (_) => const LocationInputScreen(),
       ),
     );
   }
@@ -140,7 +141,7 @@ class AppBottomNav extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => const CameraScanScreen(),
+            builder: (_) => const LocationInputScreen(),
           ),
         );
       },
