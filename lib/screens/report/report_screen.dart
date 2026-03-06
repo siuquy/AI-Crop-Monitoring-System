@@ -145,7 +145,7 @@ class _ReportScreenState extends State<ReportScreen>
                     level: _getLevelFromStatus(report.status),
                     date: report.time,
                     status: report.status,
-                    ownerComment: report.ownerComment,
+                    ownerComment: report.ownerComment ?? "",
                   ),
                 ),
               );
@@ -224,6 +224,8 @@ class _ReportScreenState extends State<ReportScreen>
         return "Trung bình";
       case ReportStatus.needMoreInfo:
         return "Nghiêm trọng";
+      default:
+        return "Không xác định";
     }
   }
 
