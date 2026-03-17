@@ -1,12 +1,10 @@
+import 'package:acmms/api/auth_api.dart';
 import 'package:acmms/screens/home/home_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 const Color primaryTeal = Color(0xFF1FCFC5);
 const Color darkTeal = Color(0xFF14B8B0);
-
-const String mockEmail = 'w';
-const String mockPassword = '1';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,11 +20,12 @@ class _LoginScreenState extends State<LoginScreen>
   late Animation<Offset> _slideAnimation;
 
   final TextEditingController _emailController =
-      TextEditingController(text: mockEmail);
+      TextEditingController(text: 'worker1@gmail.com');
   final TextEditingController _passwordController =
-      TextEditingController(text: mockPassword);
+      TextEditingController(text: '123456');
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final AuthApi _authApi = AuthApi();
 
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -40,15 +39,20 @@ class _LoginScreenState extends State<LoginScreen>
       duration: const Duration(milliseconds: 600),
     );
 
-    _fadeAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+    _fadeAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeIn,
+    );
 
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.15),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    ));
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOut,
+      ),
+    );
 
     _controller.forward();
   }
@@ -64,21 +68,44 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
-
-    await Future.delayed(const Duration(seconds: 1));
-
-    if (!mounted) return;
-
-    setState(() => _isLoading = false);
-
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (email == mockEmail && password == mockPassword) {
-      _navigateToHome();
-    } else {
-      _showMessage('Sai email hoặc mật khẩu');
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await _authApi.login(
+        email: email,
+        password: password,
+      );
+
+      if (!mounted) return;
+
+      final bool success = result.success;
+      final String message = result.message;
+      final data = result.data;
+      setState(() => _isLoading = false);
+
+      if (success && data != null) {
+        final String userEmail = data?.email ?? '';
+        final String role = data?.role ?? '';
+
+        _showMessage(
+          'Đăng nhập thành công: $userEmail ($role)',
+          success: true,
+        );
+
+        _navigateToHome();
+      } else {
+        _showMessage(
+          message.isNotEmpty ? message : 'Sai email hoặc mật khẩu',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+      _showMessage('Không thể kết nối API: $e');
     }
   }
 
@@ -162,7 +189,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 color: Colors.black.withOpacity(0.05),
                                 blurRadius: 20,
                                 offset: const Offset(0, 10),
-                              )
+                              ),
                             ],
                           ),
                           child: Column(
@@ -234,10 +261,7 @@ class _LoginScreenState extends State<LoginScreen>
                                   child: Ink(
                                     decoration: BoxDecoration(
                                       gradient: const LinearGradient(
-                                        colors: [
-                                          primaryTeal,
-                                          darkTeal,
-                                        ],
+                                        colors: [primaryTeal, darkTeal],
                                       ),
                                       borderRadius: BorderRadius.circular(30),
                                     ),

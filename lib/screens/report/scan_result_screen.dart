@@ -11,7 +11,9 @@ class ScanResultScreen extends StatelessWidget {
   final String area;
   final String row;
 
-  const ScanResultScreen({
+  final DateTime captureTime;
+
+  ScanResultScreen({
     super.key,
     this.imagePath = '',
     this.diseaseName = '',
@@ -20,13 +22,17 @@ class ScanResultScreen extends StatelessWidget {
     this.field = '',
     this.area = '',
     this.row = '',
-  });
+    DateTime? captureTime,
+  }) : captureTime = captureTime ?? DateTime.now();
 
   Widget locationItem(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.grey)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.grey),
+        ),
         const SizedBox(height: 4),
         Text(
           value,
@@ -34,6 +40,11 @@ class ScanResultScreen extends StatelessWidget {
         )
       ],
     );
+  }
+
+  String formatTime(DateTime time) {
+    return "${time.day}/${time.month}/${time.year} "
+        "${time.hour}:${time.minute.toString().padLeft(2, '0')}";
   }
 
   @override
@@ -47,6 +58,7 @@ class ScanResultScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            /// IMAGE
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: Image.file(
@@ -56,7 +68,27 @@ class ScanResultScreen extends StatelessWidget {
                 fit: BoxFit.cover,
               ),
             ),
+
+            const SizedBox(height: 10),
+
+            /// TIME DISPLAY
+            Row(
+              children: [
+                const Icon(Icons.access_time, size: 18, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text(
+                  formatTime(captureTime),
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+
             const SizedBox(height: 16),
+
+            /// RESULT CARD
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -75,8 +107,10 @@ class ScanResultScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text("Chẩn đoán bệnh",
-                            style: TextStyle(color: Colors.grey)),
+                        const Text(
+                          "Chẩn đoán bệnh",
+                          style: TextStyle(color: Colors.grey),
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           diseaseName,
@@ -107,12 +141,21 @@ class ScanResultScreen extends StatelessWidget {
                 ],
               ),
             ),
+
             const SizedBox(height: 16),
+
+            /// LOCATION TITLE
             const Text(
               "📍 Vị trí phát hiện",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
             ),
+
             const SizedBox(height: 10),
+
+            /// LOCATION CARD
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -137,7 +180,10 @@ class ScanResultScreen extends StatelessWidget {
                 ],
               ),
             ),
+
             const SizedBox(height: 20),
+
+            /// AI DESCRIPTION
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -148,6 +194,31 @@ class ScanResultScreen extends StatelessWidget {
                 "Phát hiện các đốm bất thường trên lá có hình tròn và màu sẫm – "
                 "đặc trưng của bệnh $diseaseName.\n\n"
                 "AI khuyến nghị kiểm tra và xử lý sớm để tránh lây lan.",
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            /// REPORT BUTTON
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.description),
+                label: const Text("Tạo báo cáo"),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  backgroundColor: Colors.green,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Báo cáo đã được tạo"),
+                    ),
+                  );
+                },
               ),
             ),
           ],

@@ -44,34 +44,64 @@ class _LocationInputScreenState extends State<LocationInputScreen> {
 
   Widget locationCard({
     required String title,
+    required String hint,
     required IconData icon,
     required String? value,
     required List<String> items,
     required Function(String?) onChanged,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 18),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           )
         ],
       ),
       child: Row(
         children: [
-          Icon(icon, color: primaryTeal),
-          const SizedBox(width: 10),
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: primaryTeal.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: primaryTeal),
+          ),
+          const SizedBox(width: 12),
+
+          /// TEXT + DROPDOWN
           Expanded(
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                hint: Text(title),
                 value: value,
+                hint: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                    Text(
+                      hint,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+                icon: const Icon(Icons.keyboard_arrow_down),
                 isExpanded: true,
                 items: items.map((e) {
                   return DropdownMenuItem(
@@ -93,10 +123,13 @@ class _LocationInputScreenState extends State<LocationInputScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F8),
       appBar: AppBar(
-        title: const Text("Nhập vị trí phát hiện"),
+        elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
-        elevation: 0,
+        title: const Text(
+          "Nhập vị trí phát hiện",
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -110,54 +143,73 @@ class _LocationInputScreenState extends State<LocationInputScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+            const SizedBox(height: 4),
+            const Text(
+              "Vui lòng chọn thông tin chi tiết về vị trí canh tác",
+              style: TextStyle(
+                color: Colors.grey,
+              ),
+            ),
+
             const SizedBox(height: 20),
+
             locationCard(
               title: "Trang trại",
-              icon: Icons.location_city,
+              hint: "Chọn trang trại",
+              icon: Icons.apartment,
               value: farm,
               items: farms,
               onChanged: (v) => setState(() => farm = v),
             ),
+
             locationCard(
               title: "Ruộng",
+              hint: "Chọn ruộng",
               icon: Icons.grass,
               value: field,
               items: fields,
               onChanged: (v) => setState(() => field = v),
             ),
+
             locationCard(
               title: "Khu",
-              icon: Icons.map,
+              hint: "Chọn khu vực",
+              icon: Icons.layers,
               value: area,
               items: areas,
               onChanged: (v) => setState(() => area = v),
             ),
+
             locationCard(
               title: "Luống",
-              icon: Icons.eco,
+              hint: "Chọn luống canh tác",
+              icon: Icons.spa,
               value: row,
               items: rows,
               onChanged: (v) => setState(() => row = v),
             ),
+
             const Spacer(),
+
+            /// BUTTON
             SizedBox(
               width: double.infinity,
-              height: 55,
+              height: 56,
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.camera_alt),
                 label: const Text(
                   "Bắt đầu quét",
-                  style: TextStyle(fontSize: 16),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryTeal,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(28),
                   ),
                 ),
                 onPressed: startScan,
               ),
-            ),
+            )
           ],
         ),
       ),
