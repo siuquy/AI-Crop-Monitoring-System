@@ -51,7 +51,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  // ================= HEADER =================
 
   Widget _buildTaskHeader() {
     return Container(
@@ -108,7 +107,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  // ================= UPDATE SECTION =================
 
   Widget _buildUpdateSection() {
     return Container(
@@ -148,7 +146,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  // ================= ACTION BUTTONS =================
 
   Widget _buildActionButtons() {
     return Column(
@@ -181,7 +178,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  // ================= HELPERS =================
 
   Widget _buildTags() {
     return Wrap(
@@ -298,9 +294,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         return Colors.red;
     }
   }
-
-  // ================= ACTION LOGIC =================
-
   void _saveUpdate() {
     if (_updateController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(

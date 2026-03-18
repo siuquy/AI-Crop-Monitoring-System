@@ -1,13 +1,21 @@
+import 'package:acmms/core/service/season_detail_service.dart';
+import 'package:flutter/material.dart';
 import 'package:acmms/shared/app_bottom_navbar.dart';
 import 'package:acmms/shared/bottom_tab.dart';
-import 'package:flutter/material.dart';
-import '../../models/task_model.dart';
-import '../../data/mock_task.dart';
+import 'package:acmms/models/task_model.dart';
+import 'package:acmms/core/service/task_service.dart';
 import 'task_detail_screen.dart';
+import 'package:acmms/core/service/crop_service.dart';
+import 'package:acmms/core/service/bed_service.dart';
+import 'package:acmms/core/service/plot_service.dart';
 
 const Color primaryTeal = Color(0xFF1FCFC5);
 
 enum TaskFilter { all, today, week }
+
+late Map<String, String> cropMap;
+late Map<String, Map<String, dynamic>> bedMap;
+late Map<String, Map<String, dynamic>> plotMap;
 
 class TaskListScreen extends StatefulWidget {
   const TaskListScreen({super.key});
@@ -16,24 +24,103 @@ class TaskListScreen extends StatefulWidget {
   State<TaskListScreen> createState() => _TaskListScreenState();
 }
 
+Future<List<TaskModel>> _loadAll() async {
+  final results = await Future.wait([
+    TaskService.getTasks(),
+    CropService.getCropMap(),
+    BedService.getBedMap(),
+    PlotService.getPlotMap(),
+    SeasonDetailService.getSeasonDetailMap(),
+  ]);
+
+  final tasks = results[0] as List<TaskModel>;
+  cropMap = results[1] as Map<String, String>;
+  bedMap = results[2] as Map<String, Map<String, dynamic>>;
+  plotMap = results[3] as Map<String, Map<String, dynamic>>;
+  final seasonDetailMap = results[4] as Map<String, dynamic>;
+
+  for (var t in tasks) {
+    final sd = seasonDetailMap[t.seasonId];
+
+    if (sd != null) {
+      final bed = bedMap[sd['bedId']];
+
+      t.cropName = sd['cropName'] ?? 'Không rõ';
+      t.bed = sd['bedName'] ?? '';
+
+      if (bed != null) {
+        final plot = plotMap[bed['plotId']];
+
+        if (plot != null) {
+          t.area = plot['plotName'] ?? '';
+          t.field = plot['farmName'] ?? '';
+        }
+      }
+    } else {
+      t.cropName = 'Không rõ';
+      t.bed = '';
+      t.area = '';
+      t.field = '';
+    }
+  }
+
+  return tasks;
+}
+
 class _TaskListScreenState extends State<TaskListScreen> {
   TaskFilter _currentFilter = TaskFilter.all;
+  late Future<List<TaskModel>> _tasksFuture;
 
-  List<TaskModel> get _filteredTasks {
-    List<TaskModel> tasks = mockTasks.where((task) {
+  @override
+  void initState() {
+    super.initState();
+    _tasksFuture = _loadAll();
+  }
+
+  void _refreshTasks() {
+    setState(() {
+      _tasksFuture = _loadAll();
+    });
+  }
+
+  List<TaskModel> _applyFilter(List<TaskModel> tasks) {
+    List<TaskModel> filtered = tasks.where((task) {
       if (_currentFilter == TaskFilter.all) return true;
-      if (_currentFilter == TaskFilter.today) return task.date == 'Hôm nay';
-      if (_currentFilter == TaskFilter.week) return true;
-      return false;
+
+      final date = task.taskScheduledAt?.toLocal();
+      if (date == null) return false;
+
+      if (_currentFilter == TaskFilter.today) {
+        final now = DateTime.now();
+        return date.year == now.year &&
+            date.month == now.month &&
+            date.day == now.day;
+      }
+
+      if (_currentFilter == TaskFilter.week) {
+        final now = DateTime.now();
+        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+        final endOfWeek = startOfWeek.add(const Duration(days: 6));
+
+        return !date.isBefore(
+              DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day),
+            ) &&
+            !date.isAfter(
+              DateTime(
+                  endOfWeek.year, endOfWeek.month, endOfWeek.day, 23, 59, 59),
+            );
+      }
+
+      return true;
     }).toList();
 
-    tasks.sort((a, b) {
+    filtered.sort((a, b) {
       if (a.isUrgent && !b.isUrgent) return -1;
       if (!a.isUrgent && b.isUrgent) return 1;
       return 0;
     });
 
-    return tasks;
+    return filtered;
   }
 
   void _openDetail(TaskModel task) {
@@ -66,15 +153,50 @@ class _TaskListScreenState extends State<TaskListScreen> {
               preferredSize: const Size.fromHeight(48),
               child: _buildFilter(),
             ),
+            actions: [
+              IconButton(
+                onPressed: _refreshTasks,
+                icon: const Icon(Icons.refresh, color: Colors.black),
+              )
+            ],
           ),
         ],
-        body: ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: _filteredTasks.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 16),
-          itemBuilder: (_, index) {
-            final task = _filteredTasks[index];
-            return _buildTaskCard(task);
+        body: FutureBuilder<List<TaskModel>>(
+          future: _tasksFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Lỗi tải dữ liệu:\n${snapshot.error}',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              );
+            }
+
+            final tasks = _applyFilter(snapshot.data ?? []);
+
+            if (tasks.isEmpty) {
+              return const Center(
+                child: Text('Không có công việc nào'),
+              );
+            }
+
+            return ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: tasks.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 16),
+              itemBuilder: (_, index) {
+                final task = tasks[index];
+                return _buildTaskCard(task);
+              },
+            );
           },
         ),
       ),
@@ -136,7 +258,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border(
+          border: const Border(
             left: BorderSide(color: Colors.red, width: 4),
           ),
           boxShadow: [
@@ -149,22 +271,27 @@ class _TaskListScreenState extends State<TaskListScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('⚠ KHẨN CẤP',
-                style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12)),
+            const Text(
+              '⚠ KHẨN CẤP',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
             const SizedBox(height: 8),
-            Text(task.title,
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(
+              task.title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 4),
-            Text(task.description, style: const TextStyle(color: Colors.red)),
+            Text(
+              task.description,
+              style: const TextStyle(color: Colors.red),
+            ),
             const SizedBox(height: 12),
-            _infoRow(Icons.access_time,
-                '${task.startTime}• ${task.endTime} • ${task.date}'),
-            _infoRow(Icons.location_on,
-                '${task.field} • ${task.area}${task.bed.isNotEmpty ? ' • ${task.bed}' : ''}'),
+            _infoRow(Icons.access_time, '${task.timeRange} • ${task.date}'),
+            _infoRow(Icons.location_on, task.fullLocation),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -172,7 +299,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24)),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
                 ),
                 onPressed: () => _openDetail(task),
                 child: const Text('Xử lý ngay'),
@@ -216,22 +344,27 @@ class _TaskListScreenState extends State<TaskListScreen> {
                       Row(
                         children: [
                           Expanded(
-                            child: Text(task.title,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold)),
+                            child: Text(
+                              task.title,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
+                            ),
                           ),
                           _statusBadge(task.status),
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text(task.description,
-                          style: TextStyle(
-                              fontSize: 12, color: Colors.grey.shade600)),
+                      Text(
+                        task.description,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       _infoRow(Icons.access_time,
-                          '${task.startTime}• ${task.endTime} • ${task.date}'),
-                      _infoRow(Icons.location_on,
-                          '${task.field} • ${task.area}${task.bed.isNotEmpty ? ' • ${task.bed}' : ''}'),
+                          '${task.timeRange} • ${task.date}'),
+                      _infoRow(Icons.location_on, task.fullLocation),
                       _infoRow(Icons.person, 'Giao bởi: ${task.assignedBy}'),
                     ],
                   ),
@@ -250,8 +383,9 @@ class _TaskListScreenState extends State<TaskListScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    style:
-                        ElevatedButton.styleFrom(backgroundColor: primaryTeal),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryTeal,
+                    ),
                     onPressed: () => _openDetail(task),
                     child: const Text('Tiếp tục'),
                   ),
@@ -285,32 +419,44 @@ class _TaskListScreenState extends State<TaskListScreen> {
   Widget _statusBadge(TaskStatus status) {
     late String text;
     late Color bg;
+    late Color fg;
 
     switch (status) {
       case TaskStatus.doing:
         text = 'ĐANG THỰC HIỆN';
         bg = Colors.blue.shade50;
+        fg = Colors.blue;
         break;
       case TaskStatus.pending:
         text = 'CHƯA BẮT ĐẦU';
         bg = Colors.grey.shade200;
+        fg = Colors.grey.shade700;
         break;
       case TaskStatus.completed:
         text = 'HOÀN THÀNH';
         bg = Colors.green.shade50;
+        fg = Colors.green;
         break;
-      default:
+      case TaskStatus.urgent:
         text = 'KHẨN CẤP';
         bg = Colors.red.shade50;
+        fg = Colors.red;
+        break;
     }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: fg,
+        ),
       ),
     );
   }
