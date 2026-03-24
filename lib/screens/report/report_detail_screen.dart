@@ -1,6 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 
+import '../../core/service/bed_service.dart';
+import '../../core/service/crop_service.dart';
+import '../../core/service/farm_service.dart';
+import '../../core/service/plot_service.dart';
+
 class ReportDetailScreen extends StatefulWidget {
   final String imagePath;
   final String diseaseName;
@@ -18,23 +23,139 @@ class ReportDetailScreen extends StatefulWidget {
 }
 
 class _ReportDetailScreenState extends State<ReportDetailScreen> {
-  String selectedFarm = 'Green Farm 1';
-  String selectedArea = 'Khu B';
-  String selectedBed = 'Luống 05';
-  String selectedIssue = 'Nấm lá';
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  final TextEditingController descriptionController = TextEditingController();
-  final TextEditingController noteController = TextEditingController();
+  List<Map<String, dynamic>> _farms = [];
+  Map<String, Map<String, dynamic>> _plotMap = {};
+  Map<String, Map<String, dynamic>> _bedMap = {};
+  Map<String, String> _cropMap = {}; // cropId → cropName
+
+  List<Map<String, dynamic>> _filteredPlots = [];
+  List<Map<String, dynamic>> _filteredBeds = [];
+
+  String? _selectedFarmId;
+  String? _selectedPlotId;
+  String? _selectedBedId;
+
+  String? _selectedCropId;
+
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _noteController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-
-    descriptionController.text =
+    _descriptionController.text =
         'Phát hiện các đốm vàng nâu trên lá ${widget.diseaseName}, '
         'tập trung chủ yếu ở phần ngọn. Có dấu hiệu lan rộng nhanh...';
+    _loadData();
   }
 
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final results = await Future.wait([
+        FarmService.getFarms(),
+        PlotService.getPlotMap(),
+        BedService.getBedMap(),
+        CropService.getCropMap(),
+      ]);
+
+      final farms = (results[0] as List).cast<Map<String, dynamic>>();
+      final plotMap = (results[1] as Map).cast<String, Map<String, dynamic>>();
+      final bedMap = (results[2] as Map).cast<String, Map<String, dynamic>>();
+      final cropMap = (results[3] as Map).cast<String, String>();
+
+      setState(() {
+        _farms = farms;
+        _plotMap = plotMap;
+        _bedMap = bedMap;
+        _cropMap = cropMap;
+
+        // Auto-select first crop
+        if (_cropMap.isNotEmpty) {
+          _selectedCropId = _cropMap.keys.first;
+        }
+
+        // Auto-select first farm and cascade
+        if (_farms.isNotEmpty) {
+          _selectedFarmId = _farms.first['farmId'];
+          _updateFilteredPlots();
+        }
+
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Không thể tải dữ liệu: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  // ─── Cascade: Farm → Plots ────────────────────────────────────────────────────
+  void _updateFilteredPlots() {
+    final selectedFarmName = _farms.firstWhere(
+      (f) => f['farmId'] == _selectedFarmId,
+      orElse: () => {},
+    )['farmName'];
+
+    _filteredPlots = _plotMap.entries
+        .where((e) => e.value['farmName'] == selectedFarmName)
+        .map((e) => {'plotId': e.key, 'plotName': e.value['plotName']})
+        .toList();
+
+    _selectedPlotId =
+        _filteredPlots.isNotEmpty ? _filteredPlots.first['plotId'] : null;
+    _updateFilteredBeds();
+  }
+
+  // ─── Cascade: Plot → Beds ─────────────────────────────────────────────────────
+  void _updateFilteredBeds() {
+    _filteredBeds = _bedMap.entries
+        .where((e) => e.value['plotId'].toString() == _selectedPlotId)
+        .map((e) => {'bedId': e.key, 'bedName': e.value['bedName']})
+        .toList();
+
+    _selectedBedId =
+        _filteredBeds.isNotEmpty ? _filteredBeds.first['bedId'] : null;
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────────
+  String get _selectedFarmName =>
+      _farms.firstWhere(
+        (f) => f['farmId'] == _selectedFarmId,
+        orElse: () => {'farmName': ''},
+      )['farmName'] ??
+      '';
+
+  String get _selectedPlotName =>
+      _filteredPlots.firstWhere(
+        (p) => p['plotId'] == _selectedPlotId,
+        orElse: () => {'plotName': ''},
+      )['plotName'] ??
+      '';
+
+  String get _selectedBedName =>
+      _filteredBeds.firstWhere(
+        (b) => b['bedId'] == _selectedBedId,
+        orElse: () => {'bedName': ''},
+      )['bedName'] ??
+      '';
+
+  // ─── Build ────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -48,108 +169,31 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         ),
         iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? _buildErrorView()
+              : _buildForm(),
+    );
+  }
+
+  Widget _buildErrorView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _label('Tiêu đề báo cáo *'),
-            _inputBox(
-              child: Text(
-                'Bệnh ${widget.diseaseName} - $selectedArea',
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-            ),
+            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const SizedBox(height: 12),
+            Text(_errorMessage!, textAlign: TextAlign.center),
             const SizedBox(height: 16),
-            _label('Trang trại *'),
-            _dropdown(selectedFarm, ['Green Farm 1', 'Green Farm 2'],
-                (v) => setState(() => selectedFarm = v!)),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _label('Khu *'),
-                      _dropdown(selectedArea, ['Khu A', 'Khu B'],
-                          (v) => setState(() => selectedArea = v!)),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _label('Luống *'),
-                      _dropdown(selectedBed, ['Luống 01', 'Luống 05'],
-                          (v) => setState(() => selectedBed = v!)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _label('Loại vấn đề'),
-            _dropdown(selectedIssue, ['Nấm lá', 'Sâu bệnh'],
-                (v) => setState(() => selectedIssue = v!)),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _label('Mô tả hiện trạng'),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE6F7F6),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    '✨ AI gợi ý',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF1FCFC5),
-                    ),
-                  ),
-                )
-              ],
-            ),
-            _textArea(descriptionController),
-            const SizedBox(height: 16),
-            _label('Ghi chú'),
-            _textArea(noteController, hint: 'Thêm ghi chú bổ sung...'),
-            const SizedBox(height: 16),
-            _label('Hình ảnh đính kèm'),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _imagePreview(widget.imagePath, true),
-                const SizedBox(width: 12),
-                _imagePreview(widget.imagePath, false),
-                const SizedBox(width: 12),
-                _addImageBox(),
-              ],
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1FCFC5),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: const Text(
-                  'Gửi báo cáo ➜',
-                  style: TextStyle(fontSize: 16),
-                ),
+            ElevatedButton.icon(
+              onPressed: _loadData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Thử lại'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1FCFC5),
               ),
             ),
           ],
@@ -158,32 +202,207 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
   }
 
-  Widget _label(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontWeight: FontWeight.w500,
-        ),
+  Widget _buildForm() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Tiêu đề báo cáo ──────────────────────────────────────────────
+          _label('Tiêu đề báo cáo *'),
+          _inputBox(
+            child: Text(
+              'Bệnh ${widget.diseaseName} - $_selectedPlotName',
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Trang trại ───────────────────────────────────────────────────
+          _label('Trang trại *'),
+          _buildFarmDropdown(),
+          const SizedBox(height: 16),
+
+          // ── Khu + Luống ──────────────────────────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _label('Khu *'),
+                    _buildPlotDropdown(),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _label('Luống *'),
+                    _buildBedDropdown(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // ── Loại cây trồng ────────────────────────────────────────────────
+          _label('Loại cây trồng'),
+          _buildCropDropdown(),
+          const SizedBox(height: 16),
+
+          // ── Mô tả hiện trạng ─────────────────────────────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _label('Mô tả hiện trạng'),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE6F7F6),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  '✨ AI gợi ý',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF1FCFC5)),
+                ),
+              ),
+            ],
+          ),
+          _textArea(_descriptionController),
+          const SizedBox(height: 16),
+
+          // ── Ghi chú ──────────────────────────────────────────────────────
+          _label('Ghi chú'),
+          _textArea(_noteController, hint: 'Thêm ghi chú bổ sung...'),
+          const SizedBox(height: 16),
+
+          // ── Hình ảnh đính kèm ────────────────────────────────────────────
+          _label('Hình ảnh đính kèm'),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _imagePreview(widget.imagePath, true),
+              const SizedBox(width: 12),
+              _imagePreview(widget.imagePath, false),
+              const SizedBox(width: 12),
+              _addImageBox(),
+            ],
+          ),
+          const SizedBox(height: 32),
+
+          // ── Submit ───────────────────────────────────────────────────────
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1FCFC5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              onPressed: _onSubmit,
+              child: const Text(
+                'Gửi báo cáo ➜',
+                style: TextStyle(fontSize: 16),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _inputBox({required Widget child}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: _boxDecoration(),
-      child: child,
+  // ─── Dropdowns từ API ─────────────────────────────────────────────────────────
+
+  Widget _buildFarmDropdown() {
+    if (_farms.isEmpty) return _emptyDropdown('Không có trang trại');
+    return _dropdownContainer(
+      child: DropdownButton<String>(
+        value: _selectedFarmId,
+        isExpanded: true,
+        underline: const SizedBox(),
+        items: _farms
+            .map((f) => DropdownMenuItem(
+                  value: f['farmId'] as String,
+                  child: Text(f['farmName'] as String),
+                ))
+            .toList(),
+        onChanged: (v) => setState(() {
+          _selectedFarmId = v;
+          _updateFilteredPlots();
+        }),
+      ),
     );
   }
 
-  Widget _dropdown(
-      String value, List<String> items, ValueChanged<String?> onChanged) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: _boxDecoration(),
+  Widget _buildPlotDropdown() {
+    if (_filteredPlots.isEmpty) return _emptyDropdown('Không có khu');
+    return _dropdownContainer(
+      child: DropdownButton<String>(
+        value: _selectedPlotId,
+        isExpanded: true,
+        underline: const SizedBox(),
+        items: _filteredPlots
+            .map((p) => DropdownMenuItem(
+                  value: p['plotId'] as String,
+                  child: Text(p['plotName'] as String),
+                ))
+            .toList(),
+        onChanged: (v) => setState(() {
+          _selectedPlotId = v;
+          _updateFilteredBeds();
+        }),
+      ),
+    );
+  }
+
+  Widget _buildBedDropdown() {
+    if (_filteredBeds.isEmpty) return _emptyDropdown('Không có luống');
+    return _dropdownContainer(
+      child: DropdownButton<String>(
+        value: _selectedBedId,
+        isExpanded: true,
+        underline: const SizedBox(),
+        items: _filteredBeds
+            .map((b) => DropdownMenuItem(
+                  value: b['bedId'] as String,
+                  child: Text(b['bedName'] as String),
+                ))
+            .toList(),
+        onChanged: (v) => setState(() => _selectedBedId = v),
+      ),
+    );
+  }
+
+  Widget _buildCropDropdown() {
+    if (_cropMap.isEmpty) return _emptyDropdown('Không có loại cây');
+    return _dropdownContainer(
+      child: DropdownButton<String>(
+        value: _selectedCropId,
+        isExpanded: true,
+        underline: const SizedBox(),
+        items: _cropMap.entries
+            .map((e) => DropdownMenuItem(
+                  value: e.key,
+                  child: Text(e.value),
+                ))
+            .toList(),
+        onChanged: (v) => setState(() => _selectedCropId = v),
+      ),
+    );
+  }
+
+  Widget _staticDropdown(
+      {required String value,
+      required List<String> items,
+      required ValueChanged<String?> onChanged}) {
+    return _dropdownContainer(
       child: DropdownButton<String>(
         value: value,
         isExpanded: true,
@@ -196,6 +415,67 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
   }
 
+  Widget _emptyDropdown(String hint) {
+    return _dropdownContainer(
+      child: Text(hint, style: const TextStyle(color: Colors.grey)),
+    );
+  }
+
+  Widget _dropdownContainer({required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: _boxDecoration(),
+      child: child,
+    );
+  }
+
+  // ─── Submit ───────────────────────────────────────────────────────────────────
+  void _onSubmit() {
+    if (_selectedFarmId == null ||
+        _selectedPlotId == null ||
+        _selectedBedId == null ||
+        _selectedCropId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Vui lòng chọn đầy đủ trang trại, khu, luống và loại cây')),
+      );
+      return;
+    }
+
+    // TODO: gọi API POST /api/Reports tại đây với payload:
+    // {
+    //   farmId: _selectedFarmId,
+    //   plotId: _selectedPlotId,
+    //   bedId: _selectedBedId,
+    //   cropId: _selectedCropId,
+    //   description: _descriptionController.text,
+    //   note: _noteController.text,
+    //   diseaseName: widget.diseaseName,
+    //   confidence: widget.confidence,
+    //   imagePath: widget.imagePath,
+    // }
+
+    Navigator.pop(context);
+  }
+
+  // ─── UI helpers ───────────────────────────────────────────────────────────────
+  Widget _label(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(text, style: const TextStyle(fontWeight: FontWeight.w500)),
+    );
+  }
+
+  Widget _inputBox({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: _boxDecoration(),
+      child: child,
+    );
+  }
+
   Widget _textArea(TextEditingController controller, {String? hint}) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -203,9 +483,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       child: TextField(
         controller: controller,
         maxLines: 4,
-        decoration: InputDecoration.collapsed(
-          hintText: hint,
-        ),
+        decoration: InputDecoration.collapsed(hintText: hint),
       ),
     );
   }

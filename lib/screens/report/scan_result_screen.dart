@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'report_detail_screen.dart';
 
 class ScanResultScreen extends StatelessWidget {
   final String imagePath;
@@ -58,7 +59,6 @@ class ScanResultScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            /// IMAGE
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: Image.file(
@@ -71,7 +71,6 @@ class ScanResultScreen extends StatelessWidget {
 
             const SizedBox(height: 10),
 
-            /// TIME DISPLAY
             Row(
               children: [
                 const Icon(Icons.access_time, size: 18, color: Colors.grey),
@@ -88,7 +87,6 @@ class ScanResultScreen extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            /// RESULT CARD
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -119,7 +117,7 @@ class ScanResultScreen extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const Text("Cà chua"),
+                        const Text("Bắp Cải"),
                       ],
                     ),
                   ),
@@ -144,7 +142,6 @@ class ScanResultScreen extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            /// LOCATION TITLE
             const Text(
               "📍 Vị trí phát hiện",
               style: TextStyle(
@@ -155,7 +152,6 @@ class ScanResultScreen extends StatelessWidget {
 
             const SizedBox(height: 10),
 
-            /// LOCATION CARD
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -183,7 +179,6 @@ class ScanResultScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            /// AI DESCRIPTION
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -213,9 +208,14 @@ class ScanResultScreen extends StatelessWidget {
                   ),
                 ),
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Báo cáo đã được tạo"),
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ReportDetailScreen(
+                        imagePath: imagePath,
+                        diseaseName: diseaseName,
+                        confidence: confidence,
+                      ),
                     ),
                   );
                 },

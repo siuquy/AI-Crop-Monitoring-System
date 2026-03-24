@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:acmms/screens/features/auth/welcome_screen.dart';
 
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+import 'core/service/notifiactionservice.dart';
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.init();
   runApp(const MyApp());
 }
 

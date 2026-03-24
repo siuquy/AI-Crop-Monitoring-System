@@ -26,7 +26,16 @@ class TaskService {
   TaskService._();
 
   static const String _baseUrl = 'http://10.0.2.2:5298';
-  static const Duration _timeout = Duration(seconds: 15);
+  static const Duration _timeout = Duration(seconds: 8);
+
+  static List<TaskModel>? _cache;
+  static DateTime? _cacheTime;
+  static const Duration _cacheDuration = Duration(seconds: 60);
+
+  static void clearCache() {
+    _cache = null;
+    _cacheTime = null;
+  }
 
   static Uri _buildUri(String path) => Uri.parse('$_baseUrl$path');
 
@@ -36,9 +45,21 @@ class TaskService {
     }
   }
 
-  static Future<List<TaskModel>> getTasks() async {
+  static Future<List<TaskModel>> getTasks({bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _cache != null &&
+        _cacheTime != null &&
+        DateTime.now().difference(_cacheTime!) < _cacheDuration) {
+      _log('Returning cached tasks (${_cache!.length})');
+      return _cache!;
+    }
+
     final uri = _buildUri('/api/Tasks');
-    return _getTaskList(uri);
+    final result = await _getTaskList(uri);
+
+    _cache = result;
+    _cacheTime = DateTime.now();
+    return result;
   }
 
   static Future<TaskModel> getTaskById(String id) async {
@@ -49,13 +70,10 @@ class TaskService {
 
       final response = await http.get(
         uri,
-        headers: const {
-          'Accept': 'application/json',
-        },
+        headers: const {'Accept': 'application/json'},
       ).timeout(_timeout);
 
       _log('Status: ${response.statusCode}');
-      _log('Body: ${response.body}');
 
       _ensureSuccess(response);
 
@@ -68,16 +86,11 @@ class TaskService {
       throw ApiException('Dữ liệu task không hợp lệ');
     } on SocketException {
       throw ApiException(
-        'Không thể kết nối tới server. Hãy kiểm tra backend có đang chạy không.',
-      );
+          'Không thể kết nối tới server. Hãy kiểm tra backend có đang chạy không.');
     } on TimeoutException {
-      throw ApiException(
-        'Server phản hồi quá lâu. Vui lòng thử lại.',
-      );
+      throw ApiException('Server phản hồi quá lâu. Vui lòng thử lại.');
     } on FormatException {
-      throw ApiException(
-        'Phản hồi từ server không đúng định dạng JSON.',
-      );
+      throw ApiException('Phản hồi từ server không đúng định dạng JSON.');
     }
   }
 
@@ -87,13 +100,10 @@ class TaskService {
 
       final response = await http.get(
         uri,
-        headers: const {
-          'Accept': 'application/json',
-        },
+        headers: const {'Accept': 'application/json'},
       ).timeout(_timeout);
 
       _log('Status: ${response.statusCode}');
-      _log('Body: ${response.body}');
 
       _ensureSuccess(response);
 
@@ -107,64 +117,47 @@ class TaskService {
       }
 
       if (data is Map<String, dynamic>) {
+        if (data.containsKey('data') && data['data'] is List) {
+          return (data['data'] as List)
+              .whereType<Map<String, dynamic>>()
+              .map(TaskModel.fromJson)
+              .toList();
+        }
         return [TaskModel.fromJson(data)];
       }
 
       throw ApiException('Dữ liệu danh sách task không hợp lệ');
     } on SocketException {
       throw ApiException(
-        'Không thể kết nối tới server. Hãy kiểm tra backend có đang chạy không.',
-      );
+          'Không thể kết nối tới server. Hãy kiểm tra backend có đang chạy không.');
     } on TimeoutException {
-      throw ApiException(
-        'Server phản hồi quá lâu. Vui lòng thử lại.',
-      );
+      throw ApiException('Server phản hồi quá lâu. Vui lòng thử lại.');
     } on FormatException {
-      throw ApiException(
-        'Phản hồi từ server không đúng định dạng JSON.',
-      );
+      throw ApiException('Phản hồi từ server không đúng định dạng JSON.');
     }
-  }
-
-  static List<dynamic> _extractData(dynamic json) {
-    if (json is Map<String, dynamic> && json.containsKey('data')) {
-      return json['data'] as List<dynamic>;
-    }
-    if (json is List) return json;
-    throw ApiException('Format API không hợp lệ');
   }
 
   static void _ensureSuccess(http.Response response) {
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return;
-    }
+    if (response.statusCode >= 200 && response.statusCode < 300) return;
 
     String message = 'Yêu cầu thất bại';
 
     try {
       final dynamic errorData = jsonDecode(response.body);
-
       if (errorData is Map<String, dynamic>) {
-        if (errorData['message'] != null) {
-          message = errorData['message'].toString();
-        } else if (errorData['title'] != null) {
-          message = errorData['title'].toString();
-        } else if (errorData['errors'] != null) {
-          message = errorData['errors'].toString();
-        }
+        message = (errorData['message'] ??
+                errorData['title'] ??
+                errorData['errors'] ??
+                message)
+            .toString();
       } else if (response.body.trim().isNotEmpty) {
         message = response.body;
       }
     } catch (_) {
-      if (response.body.trim().isNotEmpty) {
-        message = response.body;
-      }
+      if (response.body.trim().isNotEmpty) message = response.body;
     }
 
-    throw ApiException(
-      message,
-      statusCode: response.statusCode,
-    );
+    throw ApiException(message, statusCode: response.statusCode);
   }
 
   static dynamic _decodeJson(String body) {
