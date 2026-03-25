@@ -1,21 +1,16 @@
 import 'package:acmms/core/service/season_detail_service.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:acmms/shared/app_bottom_navbar.dart';
 import 'package:acmms/shared/bottom_tab.dart';
 import 'package:acmms/models/task_model.dart';
 import 'package:acmms/core/service/task_service.dart';
 import 'task_detail_screen.dart';
-import 'package:acmms/core/service/crop_service.dart';
 import 'package:acmms/core/service/bed_service.dart';
 import 'package:acmms/core/service/plot_service.dart';
+import 'package:acmms/core/service/farm_service.dart';
 
 const Color primaryTeal = Color(0xFF1FCFC5);
-
-enum TaskFilter { all, today, week }
-
-late Map<String, String> cropMap;
-late Map<String, Map<String, dynamic>> bedMap;
-late Map<String, Map<String, dynamic>> plotMap;
 
 class TaskListScreen extends StatefulWidget {
   const TaskListScreen({super.key});
@@ -24,47 +19,72 @@ class TaskListScreen extends StatefulWidget {
   State<TaskListScreen> createState() => _TaskListScreenState();
 }
 
+enum TaskFilter { all, today, week }
+
 Future<List<TaskModel>> _loadAll() async {
   final results = await Future.wait([
     TaskService.getTasks(),
-    CropService.getCropMap(),
     BedService.getBedMap(),
     PlotService.getPlotMap(),
     SeasonDetailService.getSeasonDetailMap(),
+    FarmService.getFarmMap(),
   ]);
 
   final tasks = results[0] as List<TaskModel>;
-  cropMap = results[1] as Map<String, String>;
-  bedMap = results[2] as Map<String, Map<String, dynamic>>;
-  plotMap = results[3] as Map<String, Map<String, dynamic>>;
-  final seasonDetailMap = results[4] as Map<String, dynamic>;
+  final bedMap = results[1] as Map<String, Map<String, dynamic>>;
+  final plotMap = results[2] as Map<String, Map<String, dynamic>>;
+  final seasonDetailMap = results[3] as Map<String, dynamic>;
+  final farmMap = results[4] as Map<String, String>;
 
   for (var t in tasks) {
     final sd = seasonDetailMap[t.seasonId];
 
     if (sd != null) {
-      final bed = bedMap[sd['bedId']];
-
       t.cropName = sd['cropName'] ?? 'Không rõ';
-      t.bed = sd['bedName'] ?? '';
-
-      if (bed != null) {
-        final plot = plotMap[bed['plotId']];
-
-        if (plot != null) {
-          t.area = plot['plotName'] ?? '';
-          t.field = plot['farmName'] ?? '';
-        }
-      }
     } else {
       t.cropName = 'Không rõ';
-      t.bed = '';
-      t.area = '';
-      t.field = '';
     }
+
+    final allPlotIds = <String>{};
+    allPlotIds.addAll(t.plotIds);
+    for (final bedId in t.bedIds) {
+      final plotId = bedMap[bedId]?['plotId']?.toString();
+      if (plotId != null) {
+        allPlotIds.add(plotId);
+      }
+    }
+
+    final bedNames = t.bedIds
+        .map((id) => bedMap[id]?['bedName'] as String?)
+        .whereType<String>()
+        .toList();
+    t.bed = bedNames.join(', ');
+
+    final plotNames = allPlotIds
+        .map((id) => plotMap[id]?['plotName'] as String?)
+        .whereType<String>()
+        .toList();
+    t.area = plotNames.join(', ');
+
+    final farmIds = allPlotIds
+        .map((plotId) => plotMap[plotId]?['farmId']?.toString())
+        .whereType<String>();
+
+    final farmNames = farmIds
+        .map((farmId) => farmMap[farmId])
+        .whereType<String>()
+        .toSet()
+        .toList();
+
+    t.field = farmNames.join(', ');
   }
 
   return tasks;
+}
+
+String _formatTaskDateTime(DateTime? date) {
+  if (date == null) return 'Chưa có';
+  return DateFormat('dd/MM/yyyy, HH:mm').format(date.toLocal());
 }
 
 class _TaskListScreenState extends State<TaskListScreen> {
@@ -123,13 +143,17 @@ class _TaskListScreenState extends State<TaskListScreen> {
     return filtered;
   }
 
-  void _openDetail(TaskModel task) {
-    Navigator.push(
+  void _openDetail(TaskModel task) async {
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => TaskDetailScreen(task: task),
+        builder: (_) => TaskDetailScreen(taskId: task.id),
       ),
     );
+
+    if (result == true) {
+      _refreshTasks();
+    }
   }
 
   @override
@@ -290,8 +314,14 @@ class _TaskListScreenState extends State<TaskListScreen> {
               style: const TextStyle(color: Colors.red),
             ),
             const SizedBox(height: 12),
-            _infoRow(Icons.access_time, '${task.timeRange} • ${task.date}'),
-            _infoRow(Icons.location_on, task.fullLocation),
+            _infoRow(Icons.play_circle_outline,
+                'Bắt đầu: ${_formatTaskDateTime(task.taskScheduledAt)}'),
+            if (task.field.isNotEmpty)
+              _infoRow(Icons.business, 'Trang trại: ${task.field}'),
+            if (task.area.isNotEmpty)
+              _infoRow(Icons.map_outlined, 'Khu/Ruộng: ${task.area}'),
+            if (task.bed.isNotEmpty)
+              _infoRow(Icons.view_day_outlined, 'Luống: ${task.bed}'),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -362,9 +392,14 @@ class _TaskListScreenState extends State<TaskListScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      _infoRow(Icons.access_time,
-                          '${task.timeRange} • ${task.date}'),
-                      _infoRow(Icons.location_on, task.fullLocation),
+                      _infoRow(Icons.play_circle_outline,
+                          'Bắt đầu: ${_formatTaskDateTime(task.taskScheduledAt)}'),
+                      if (task.field.isNotEmpty)
+                        _infoRow(Icons.business, 'Trang trại: ${task.field}'),
+                      if (task.area.isNotEmpty)
+                        _infoRow(Icons.map_outlined, 'Khu/Ruộng: ${task.area}'),
+                      if (task.bed.isNotEmpty)
+                        _infoRow(Icons.view_day_outlined, 'Luống: ${task.bed}'),
                       _infoRow(Icons.person, 'Giao bởi: ${task.assignedBy}'),
                     ],
                   ),

@@ -20,9 +20,6 @@ class _LocationInputScreenState extends State<LocationInputScreen> {
   String? selectedPlotId;
   String? selectedPlotName;
 
-  String? selectedAreaKey;
-  String? selectedAreaName;
-
   String? selectedBedId;
   String? selectedBedName;
 
@@ -33,14 +30,12 @@ class _LocationInputScreenState extends State<LocationInputScreen> {
   bool _isLoading = true;
 
   List<Map<String, dynamic>> get _filteredPlots {
-    if (selectedFarmName == null) return [];
+    if (selectedFarmId == null) return [];
     return _plotMap.entries
-        .where((e) => e.value['farmName'] == selectedFarmName)
+        .where((e) => e.value['farmId'] == selectedFarmId)
         .map((e) => {'plotId': e.key, 'plotName': e.value['plotName']})
         .toList();
   }
-
-  List<Map<String, dynamic>> get _filteredAreas => _filteredPlots;
 
   List<Map<String, dynamic>> get _filteredBeds {
     if (selectedPlotId == null) return [];
@@ -59,12 +54,15 @@ class _LocationInputScreenState extends State<LocationInputScreen> {
   Future<void> _loadData() async {
     try {
       final results = await Future.wait([
-        FarmService.getFarms(),
+        FarmService.getFarmMap(),
         PlotService.getPlotMap(),
         BedService.getBedMap(),
       ]);
       setState(() {
-        _farms = results[0] as List<Map<String, dynamic>>;
+        final farmMap = results[0] as Map<String, String>;
+        _farms = farmMap.entries
+            .map((e) => {'farmId': e.key, 'farmName': e.value})
+            .toList();
         _plotMap = results[1] as Map<String, Map<String, dynamic>>;
         _bedMap = results[2] as Map<String, Map<String, dynamic>>;
         _isLoading = false;
@@ -171,8 +169,6 @@ class _LocationInputScreenState extends State<LocationInputScreen> {
         selectedFarmName = result['name'];
         selectedPlotId = null;
         selectedPlotName = null;
-        selectedAreaKey = null;
-        selectedAreaName = null;
         selectedBedId = null;
         selectedBedName = null;
       });
@@ -192,27 +188,6 @@ class _LocationInputScreenState extends State<LocationInputScreen> {
       setState(() {
         selectedPlotId = result['id'];
         selectedPlotName = result['name'];
-        selectedAreaKey = null;
-        selectedAreaName = null;
-        selectedBedId = null;
-        selectedBedName = null;
-      });
-    }
-  }
-
-  void _pickArea() async {
-    if (_filteredAreas.isEmpty) return;
-    final result = await _showPicker(
-      title: 'Chọn khu vực',
-      items: _filteredAreas,
-      idKey: 'plotId',
-      nameKey: 'plotName',
-      currentId: selectedAreaKey,
-    );
-    if (result != null) {
-      setState(() {
-        selectedAreaKey = result['id'];
-        selectedAreaName = result['name'];
         selectedBedId = null;
         selectedBedName = null;
       });
@@ -239,7 +214,6 @@ class _LocationInputScreenState extends State<LocationInputScreen> {
   void startScan() {
     if (selectedFarmId == null ||
         selectedPlotId == null ||
-        selectedAreaKey == null ||
         selectedBedId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Vui lòng chọn đầy đủ vị trí")),
@@ -252,8 +226,11 @@ class _LocationInputScreenState extends State<LocationInputScreen> {
         builder: (_) => CameraScanScreen(
           farm: selectedFarmName!,
           field: selectedPlotName!,
-          area: selectedAreaName!,
+          area: '', // Khu is removed
           row: selectedBedName!,
+          farmId: selectedFarmId!,
+          plotId: selectedPlotId!,
+          bedId: selectedBedId!,
         ),
       ),
     );
@@ -382,20 +359,12 @@ class _LocationInputScreenState extends State<LocationInputScreen> {
                     enabled: selectedFarmId != null,
                   ),
                   _locationCard(
-                    title: "Khu",
-                    hint: "Chọn khu vực",
-                    icon: Icons.layers,
-                    selectedName: selectedAreaName,
-                    onTap: _pickArea,
-                    enabled: selectedPlotId != null,
-                  ),
-                  _locationCard(
                     title: "Luống",
                     hint: "Chọn luống canh tác",
                     icon: Icons.spa,
                     selectedName: selectedBedName,
                     onTap: _pickBed,
-                    enabled: selectedAreaKey != null,
+                    enabled: selectedPlotId != null,
                   ),
                   const Spacer(),
                   SizedBox(

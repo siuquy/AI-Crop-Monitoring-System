@@ -9,8 +9,12 @@ class ScanResultScreen extends StatelessWidget {
 
   final String farm;
   final String field;
-  final String area;
+  final String? area;
   final String row;
+
+  final String farmId;
+  final String plotId;
+  final String bedId;
 
   final DateTime captureTime;
 
@@ -21,8 +25,11 @@ class ScanResultScreen extends StatelessWidget {
     this.confidence = 0,
     this.farm = '',
     this.field = '',
-    this.area = '',
+    this.area,
     this.row = '',
+    required this.farmId,
+    required this.plotId,
+    required this.bedId,
     DateTime? captureTime,
   }) : captureTime = captureTime ?? DateTime.now();
 
@@ -169,7 +176,8 @@ class ScanResultScreen extends StatelessWidget {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Expanded(child: locationItem("Khu", area)),
+                      if (area != null && area!.isNotEmpty)
+                        Expanded(child: locationItem("Khu", area!)),
                       Expanded(child: locationItem("Luống", row)),
                     ],
                   ),
@@ -215,6 +223,9 @@ class ScanResultScreen extends StatelessWidget {
                         imagePath: imagePath,
                         diseaseName: diseaseName,
                         confidence: confidence,
+                        selectedFarmId: farmId,
+                        selectedPlotId: plotId,
+                        selectedBedId: bedId,
                       ),
                     ),
                   );

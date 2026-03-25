@@ -5,15 +5,21 @@ import 'scan_result_screen.dart';
 class CameraScanScreen extends StatefulWidget {
   final String farm;
   final String field;
-  final String area;
+  final String? area;
   final String row;
+  final String farmId;
+  final String plotId;
+  final String bedId;
 
   const CameraScanScreen({
     super.key,
     required this.farm,
     required this.field,
-    required this.area,
+    this.area,
     required this.row,
+    required this.farmId,
+    required this.plotId,
+    required this.bedId,
   });
 
   @override
@@ -70,6 +76,9 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
           field: widget.field,
           area: widget.area,
           row: widget.row,
+          farmId: widget.farmId,
+          plotId: widget.plotId,
+          bedId: widget.bedId,
         ),
       ),
     );
@@ -89,7 +98,6 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
       body: Stack(
         children: [
           CameraPreview(_controller!),
-
           Center(
             child: Container(
               width: 260,
@@ -103,7 +111,6 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
               ),
             ),
           ),
-
           Positioned(
             bottom: 140,
             left: 0,
@@ -122,7 +129,6 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
               ],
             ),
           ),
-
           Positioned(
             bottom: 40,
             left: 0,

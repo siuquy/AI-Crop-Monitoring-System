@@ -10,12 +10,18 @@ class ReportDetailScreen extends StatefulWidget {
   final String imagePath;
   final String diseaseName;
   final double confidence;
+  final String? selectedFarmId;
+  final String? selectedPlotId;
+  final String? selectedBedId;
 
   const ReportDetailScreen({
     super.key,
     required this.imagePath,
     required this.diseaseName,
     required this.confidence,
+    this.selectedFarmId,
+    this.selectedPlotId,
+    this.selectedBedId,
   });
 
   @override
@@ -67,13 +73,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
     try {
       final results = await Future.wait([
-        FarmService.getFarms(),
+        FarmService.getFarmMap(),
         PlotService.getPlotMap(),
         BedService.getBedMap(),
         CropService.getCropMap(),
       ]);
 
-      final farms = (results[0] as List).cast<Map<String, dynamic>>();
+      final farmMap = (results[0] as Map).cast<String, String>();
+      final farms = farmMap.entries
+          .map((e) => {'farmId': e.key, 'farmName': e.value})
+          .toList();
       final plotMap = (results[1] as Map).cast<String, Map<String, dynamic>>();
       final bedMap = (results[2] as Map).cast<String, Map<String, dynamic>>();
       final cropMap = (results[3] as Map).cast<String, String>();
@@ -89,11 +98,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           _selectedCropId = _cropMap.keys.first;
         }
 
-        // Auto-select first farm and cascade
-        if (_farms.isNotEmpty) {
+        // Use passed-in farm ID or default to the first one
+        if (widget.selectedFarmId != null &&
+            _farms.any((f) => f['farmId'] == widget.selectedFarmId)) {
+          _selectedFarmId = widget.selectedFarmId;
+        } else if (_farms.isNotEmpty) {
           _selectedFarmId = _farms.first['farmId'];
-          _updateFilteredPlots();
         }
+        _updateFilteredPlots(isInitialLoad: true);
 
         _isLoading = false;
       });
@@ -105,32 +117,38 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     }
   }
 
-  // ─── Cascade: Farm → Plots ────────────────────────────────────────────────────
-  void _updateFilteredPlots() {
-    final selectedFarmName = _farms.firstWhere(
-      (f) => f['farmId'] == _selectedFarmId,
-      orElse: () => {},
-    )['farmName'];
-
+  void _updateFilteredPlots({bool isInitialLoad = false}) {
     _filteredPlots = _plotMap.entries
-        .where((e) => e.value['farmName'] == selectedFarmName)
+        .where(
+            (e) => e.value['farmId']?.toString() == _selectedFarmId?.toString())
         .map((e) => {'plotId': e.key, 'plotName': e.value['plotName']})
         .toList();
 
-    _selectedPlotId =
-        _filteredPlots.isNotEmpty ? _filteredPlots.first['plotId'] : null;
-    _updateFilteredBeds();
+    if (isInitialLoad &&
+        widget.selectedPlotId != null &&
+        _filteredPlots.any((p) => p['plotId'] == widget.selectedPlotId)) {
+      _selectedPlotId = widget.selectedPlotId;
+    } else {
+      _selectedPlotId =
+          _filteredPlots.isNotEmpty ? _filteredPlots.first['plotId'] : null;
+    }
+    _updateFilteredBeds(isInitialLoad: isInitialLoad);
   }
 
-  // ─── Cascade: Plot → Beds ─────────────────────────────────────────────────────
-  void _updateFilteredBeds() {
+  void _updateFilteredBeds({bool isInitialLoad = false}) {
     _filteredBeds = _bedMap.entries
         .where((e) => e.value['plotId'].toString() == _selectedPlotId)
         .map((e) => {'bedId': e.key, 'bedName': e.value['bedName']})
         .toList();
 
-    _selectedBedId =
-        _filteredBeds.isNotEmpty ? _filteredBeds.first['bedId'] : null;
+    if (isInitialLoad &&
+        widget.selectedBedId != null &&
+        _filteredBeds.any((b) => b['bedId'] == widget.selectedBedId)) {
+      _selectedBedId = widget.selectedBedId;
+    } else {
+      _selectedBedId =
+          _filteredBeds.isNotEmpty ? _filteredBeds.first['bedId'] : null;
+    }
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -230,7 +248,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _label('Khu *'),
+                    _label('Ruộng *'),
                     _buildPlotDropdown(),
                   ],
                 ),
@@ -335,7 +353,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             .toList(),
         onChanged: (v) => setState(() {
           _selectedFarmId = v;
-          _updateFilteredPlots();
+          _updateFilteredPlots(); // isInitialLoad defaults to false
         }),
       ),
     );
@@ -356,7 +374,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             .toList(),
         onChanged: (v) => setState(() {
           _selectedPlotId = v;
-          _updateFilteredBeds();
+          _updateFilteredBeds(); // isInitialLoad defaults to false
         }),
       ),
     );

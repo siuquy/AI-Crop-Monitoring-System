@@ -82,19 +82,48 @@ class TaskService {
   }
 
   static Future<TaskModel> getTaskById(String id) async {
-    final uri = _buildUri('/api/Tasks/$id');
+    final taskUri = _buildUri('/api/Tasks/$id');
+    final detailsUri = _buildUri('/api/TaskDetails');
 
     try {
-      final response = await _get(uri);
+      final responses = await Future.wait([
+        _get(taskUri),
+        _get(detailsUri),
+      ]);
 
-      _log('Status: ${response.statusCode}');
+      final taskResponse = responses[0];
+      final detailsResponse = responses[1];
 
-      _ensureSuccess(response);
+      _log('Task Status: ${taskResponse.statusCode}');
+      _log('Details Status: ${detailsResponse.statusCode}');
 
-      final dynamic data = _decodeJson(response.body);
+      _ensureSuccess(taskResponse);
+      _ensureSuccess(detailsResponse);
 
-      if (data is Map<String, dynamic>) {
-        return TaskModel.fromJson(data);
+      final dynamic taskJson = _decodeJson(taskResponse.body);
+      final dynamic detailsJson = _decodeJson(detailsResponse.body);
+
+      if (taskJson is Map<String, dynamic>) {
+        Map<String, dynamic> taskData = taskJson.containsKey('data') &&
+                taskJson['data'] is Map<String, dynamic>
+            ? taskJson['data']
+            : taskJson;
+
+        if (detailsJson is Map<String, dynamic> &&
+            detailsJson.containsKey('data') &&
+            detailsJson['data'] is List) {
+          final detailsList = detailsJson['data'] as List;
+          final detailData = detailsList.firstWhere((d) => d['taskId'] == id,
+              orElse: () => null);
+
+          if (detailData != null) {
+            if (detailData.containsKey('notes')) {
+              detailData['taskNotes'] = detailData['notes'];
+            }
+            taskData.addAll(detailData);
+          }
+        }
+        return TaskModel.fromJson(taskData);
       }
 
       throw ApiException('Dữ liệu task không hợp lệ');
@@ -116,26 +145,56 @@ class TaskService {
 
       _ensureSuccess(response);
 
-      final dynamic data = _decodeJson(response.body);
+      final dynamic taskDataJson = _decodeJson(response.body);
+      List<Map<String, dynamic>> taskListJson;
 
-      if (data is List) {
-        return data
+      if (taskDataJson is List) {
+        taskListJson = taskDataJson.whereType<Map<String, dynamic>>().toList();
+      } else if (taskDataJson is Map<String, dynamic> &&
+          taskDataJson.containsKey('data') &&
+          taskDataJson['data'] is List) {
+        taskListJson = (taskDataJson['data'] as List)
             .whereType<Map<String, dynamic>>()
-            .map(TaskModel.fromJson)
             .toList();
+      } else {
+        throw ApiException('Dữ liệu danh sách task không hợp lệ');
       }
 
-      if (data is Map<String, dynamic>) {
-        if (data.containsKey('data') && data['data'] is List) {
-          return (data['data'] as List)
-              .whereType<Map<String, dynamic>>()
-              .map(TaskModel.fromJson)
-              .toList();
+      // Fetch details and merge them into the tasks
+      try {
+        final detailsUri = _buildUri('/api/TaskDetails');
+        final detailsResponse = await _get(detailsUri);
+        if (detailsResponse.statusCode >= 200 &&
+            detailsResponse.statusCode < 300) {
+          final dynamic detailsJson = _decodeJson(detailsResponse.body);
+          Map<String, dynamic> detailsMap = {};
+
+          final detailsList = (detailsJson is Map<String, dynamic> &&
+                  detailsJson.containsKey('data'))
+              ? detailsJson['data'] as List
+              : detailsJson as List;
+
+          for (var detail in detailsList) {
+            if (detail['taskId'] != null) {
+              detailsMap[detail['taskId'].toString()] = detail;
+            }
+          }
+
+          for (var taskJson in taskListJson) {
+            final taskId = taskJson['id']?.toString();
+            if (taskId != null && detailsMap.containsKey(taskId)) {
+              final detailData = detailsMap[taskId];
+              if (detailData['notes'] != null) {
+                taskJson['taskNotes'] = detailData['notes'];
+              }
+            }
+          }
         }
-        return [TaskModel.fromJson(data)];
+      } catch (e) {
+        _log('Could not fetch or merge task details: $e');
       }
 
-      throw ApiException('Dữ liệu danh sách task không hợp lệ');
+      return taskListJson.map(TaskModel.fromJson).toList();
     } on SocketException {
       throw ApiException(
           'Không thể kết nối tới server. Hãy kiểm tra backend có đang chạy không.');

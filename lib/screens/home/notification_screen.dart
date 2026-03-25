@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/service/notifiactionservice.dart';
+import '../task/task_detail_screen.dart';
 
 const Color primaryTeal = Color(0xFF1FCFC5);
 const Color bgColor = Color(0xFFF6F8F7);
@@ -12,30 +13,7 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
-  final List<_NotificationData> notifications = [
-    _NotificationData(
-      icon: Icons.bug_report,
-      iconBg: const Color(0xFFFFEDED),
-      iconColor: Colors.red,
-      title: 'Phát hiện rầy nâu tại Khu A',
-      description: 'AI nhận diện mật độ cao, cần kiểm tra ngay lập tức.',
-      time: '5 phút trước',
-      type: 'report',
-      referenceId: 'report_1',
-      unread: true,
-    ),
-    _NotificationData(
-      icon: Icons.task_alt,
-      iconBg: const Color(0xFFF3E5F5),
-      iconColor: Colors.deepPurple,
-      title: 'Nhiệm vụ mới được phân công',
-      description: 'Bạn được phân công kiểm tra khu vực D.',
-      time: '5 giờ trước',
-      type: 'task',
-      referenceId: 'task_1',
-      unread: true,
-    ),
-  ];
+  final List<_NotificationData> notifications = [];
 
   int _notifIdCounter = 100;
   static Future<void> triggerNewTaskNotification({
@@ -43,7 +21,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
     required String assignedBy,
     String? taskId,
   }) async {
-    // Sinh id tăng dần (dùng timestamp để tránh trùng)
     final id = DateTime.now().millisecondsSinceEpoch % 100000;
 
     await NotificationService.showNewTaskNotification(
@@ -59,8 +36,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
     switch (item.type) {
       case 'task':
-        Navigator.pushNamed(context, '/taskDetail',
-            arguments: item.referenceId);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TaskDetailScreen(taskId: item.referenceId),
+          ),
+        );
         break;
       case 'report':
         Navigator.pushNamed(context, '/reportDetail',
