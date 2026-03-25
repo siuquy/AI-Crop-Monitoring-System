@@ -25,7 +25,7 @@ class ApiException implements Exception {
 class TaskService {
   TaskService._();
 
-  static const String _baseUrl = 'http://10.0.2.2:5298';
+  static const String _baseUrl = 'https://10.0.2.2:7093';
   static const Duration _timeout = Duration(seconds: 8);
 
   static List<TaskModel>? _cache;
@@ -43,6 +43,25 @@ class TaskService {
     if (kDebugMode) {
       debugPrint('[TaskService] $message');
     }
+  }
+
+  static Future<http.Response> _get(Uri uri) async {
+    _log('GET $uri');
+    var response = await http.get(
+      uri,
+      headers: const {'Accept': 'application/json'},
+    ).timeout(_timeout);
+
+    if (response.statusCode == 307 || response.statusCode == 308) {
+      final location = response.headers['location'];
+      if (location != null) {
+        final newUri = uri.resolve(location);
+        _log('Following temporary redirect to $newUri');
+        response = await http.get(newUri,
+            headers: const {'Accept': 'application/json'}).timeout(_timeout);
+      }
+    }
+    return response;
   }
 
   static Future<List<TaskModel>> getTasks({bool forceRefresh = false}) async {
@@ -66,12 +85,7 @@ class TaskService {
     final uri = _buildUri('/api/Tasks/$id');
 
     try {
-      _log('GET $uri');
-
-      final response = await http.get(
-        uri,
-        headers: const {'Accept': 'application/json'},
-      ).timeout(_timeout);
+      final response = await _get(uri);
 
       _log('Status: ${response.statusCode}');
 
@@ -96,12 +110,7 @@ class TaskService {
 
   static Future<List<TaskModel>> _getTaskList(Uri uri) async {
     try {
-      _log('GET $uri');
-
-      final response = await http.get(
-        uri,
-        headers: const {'Accept': 'application/json'},
-      ).timeout(_timeout);
+      final response = await _get(uri);
 
       _log('Status: ${response.statusCode}');
 

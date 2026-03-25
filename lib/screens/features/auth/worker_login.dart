@@ -19,10 +19,8 @@ class _LoginScreenState extends State<LoginScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
-  final TextEditingController _emailController =
-      TextEditingController(text: 'worker1@gmail.com');
-  final TextEditingController _passwordController =
-      TextEditingController(text: '123456');
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final AuthApi _authApi = AuthApi();
@@ -86,9 +84,9 @@ class _LoginScreenState extends State<LoginScreen>
       final data = result.data;
       setState(() => _isLoading = false);
 
-      if (success && data != null) {
-        final String userEmail = data?.email ?? '';
-        final String role = data?.role ?? '';
+      if (success && data is Map<String, dynamic>) {
+        final String userEmail = data['email'] ?? '';
+        final String role = data['role'] ?? '';
 
         _showMessage(
           'Đăng nhập thành công: $userEmail ($role)',
