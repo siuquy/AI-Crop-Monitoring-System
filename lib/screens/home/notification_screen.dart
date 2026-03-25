@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/service/notifiactionservice.dart';
+import '../task/task_detail_screen.dart';
 
 const Color primaryTeal = Color(0xFF1FCFC5);
 const Color bgColor = Color(0xFFF6F8F7);
@@ -11,51 +13,39 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
-  final List<_NotificationData> notifications = [
-    _NotificationData(
-      icon: Icons.bug_report,
-      iconBg: const Color(0xFFFFEDED),
-      iconColor: Colors.red,
-      title: 'Phát hiện rầy nâu tại Khu A',
-      description: 'AI nhận diện mật độ cao, cần kiểm tra ngay lập tức.',
-      time: '5 phút trước',
-      type: 'report',
-      referenceId: 'report_1',
-      unread: true,
-    ),
-    _NotificationData(
-      icon: Icons.task_alt,
-      iconBg: const Color(0xFFF3E5F5),
-      iconColor: Colors.deepPurple,
-      title: 'Nhiệm vụ mới được phân công',
-      description: 'Bạn được phân công kiểm tra khu vực D.',
-      time: '5 giờ trước',
-      type: 'task',
-      referenceId: 'task_1',
-      unread: true,
-    ),
-  ];
+  final List<_NotificationData> notifications = [];
+
+  int _notifIdCounter = 100;
+  static Future<void> triggerNewTaskNotification({
+    required String taskTitle,
+    required String assignedBy,
+    String? taskId,
+  }) async {
+    final id = DateTime.now().millisecondsSinceEpoch % 100000;
+
+    await NotificationService.showNewTaskNotification(
+      id: id,
+      taskTitle: taskTitle,
+      assignedBy: assignedBy,
+      taskId: taskId,
+    );
+  }
 
   void _handleTap(_NotificationData item) {
-    setState(() {
-      item.unread = false;
-    });
+    setState(() => item.unread = false);
 
     switch (item.type) {
       case 'task':
-        Navigator.pushNamed(
+        Navigator.push(
           context,
-          '/taskDetail',
-          arguments: item.referenceId,
+          MaterialPageRoute(
+            builder: (_) => TaskDetailScreen(taskId: item.referenceId),
+          ),
         );
         break;
-
       case 'report':
-        Navigator.pushNamed(
-          context,
-          '/reportDetail',
-          arguments: item.referenceId,
-        );
+        Navigator.pushNamed(context, '/reportDetail',
+            arguments: item.referenceId);
         break;
     }
   }
@@ -66,6 +56,56 @@ class _NotificationScreenState extends State<NotificationScreen> {
         n.unread = false;
       }
     });
+  }
+
+  // ─── Thêm notification mới vào danh sách trong app ───────────────────────
+  void _addToInAppList(String title, String description) {
+    setState(() {
+      notifications.insert(
+        0,
+        _NotificationData(
+          icon: Icons.task_alt,
+          iconBg: const Color(0xFFF3E5F5),
+          iconColor: Colors.deepPurple,
+          title: title,
+          description: description,
+          time: 'Vừa xong',
+          type: 'task',
+          referenceId: 'task_$_notifIdCounter',
+          unread: true,
+        ),
+      );
+      _notifIdCounter++;
+    });
+  }
+
+  // ─── Nút test thủ công ────────────────────────────────────────────────────
+  Future<void> _sendTestNotification() async {
+    const taskTitle = 'Kiểm tra sâu bệnh khu vực B';
+    const assignedBy = 'Owner Nguyễn Văn A';
+    const taskId = 'task_999';
+
+    // 1. Bắn local notification lên system tray
+    await triggerNewTaskNotification(
+      taskTitle: taskTitle,
+      assignedBy: assignedBy,
+      taskId: taskId,
+    );
+
+    // 2. Thêm vào danh sách in-app
+    _addToInAppList(
+      'Nhiệm vụ mới: $taskTitle',
+      '$assignedBy vừa phân công cho bạn.',
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Đã gửi notification thử nghiệm'),
+          backgroundColor: primaryTeal,
+        ),
+      );
+    }
   }
 
   @override
@@ -81,10 +121,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         ),
         title: const Text(
           'Thông báo',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         actions: [
           TextButton(
@@ -100,24 +137,72 @@ class _NotificationScreenState extends State<NotificationScreen> {
           )
         ],
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: notifications.length,
-        itemBuilder: (context, index) {
-          final item = notifications[index];
-          return GestureDetector(
-            onTap: () => _handleTap(item),
-            child: _NotificationItem(
-              icon: item.icon,
-              iconBg: item.iconBg,
-              iconColor: item.iconColor,
-              title: item.title,
-              description: item.description,
-              time: item.time,
-              unread: item.unread,
+      body: Column(
+        children: [
+          // ── Banner test notification ─────────────────────────────────────
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE6F7F6),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: primaryTeal.withOpacity(0.3)),
             ),
-          );
-        },
+            child: Row(
+              children: [
+                const Icon(Icons.notifications_active,
+                    color: primaryTeal, size: 20),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Trigger thủ công khi owner giao task',
+                    style: TextStyle(fontSize: 13, color: Colors.black87),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: _sendTestNotification,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryTeal,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('Gửi thử',
+                      style: TextStyle(fontSize: 12, color: Colors.white)),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Danh sách notification ───────────────────────────────────────
+          Expanded(
+            child: notifications.isEmpty
+                ? const Center(child: Text('Không có thông báo nào'))
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: notifications.length,
+                    itemBuilder: (context, index) {
+                      final item = notifications[index];
+                      return GestureDetector(
+                        onTap: () => _handleTap(item),
+                        child: _NotificationItem(
+                          icon: item.icon,
+                          iconBg: item.iconBg,
+                          iconColor: item.iconColor,
+                          title: item.title,
+                          description: item.description,
+                          time: item.time,
+                          unread: item.unread,
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -130,7 +215,7 @@ class _NotificationData {
   final String title;
   final String description;
   final String time;
-  final String type; // task | report
+  final String type;
   final String referenceId;
   bool unread;
 
@@ -187,10 +272,7 @@ class _NotificationItem extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: iconBg,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
             child: Icon(icon, color: iconColor, size: 20),
           ),
           const SizedBox(width: 12),
@@ -204,9 +286,7 @@ class _NotificationItem extends StatelessWidget {
                       child: Text(
                         title,
                         style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14.5,
-                        ),
+                            fontWeight: FontWeight.w600, fontSize: 14.5),
                       ),
                     ),
                     if (unread)
@@ -221,21 +301,11 @@ class _NotificationItem extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    color: Colors.grey,
-                  ),
-                ),
+                Text(description,
+                    style: const TextStyle(fontSize: 12.5, color: Colors.grey)),
                 const SizedBox(height: 6),
-                Text(
-                  time,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: Colors.grey,
-                  ),
-                ),
+                Text(time,
+                    style: const TextStyle(fontSize: 11.5, color: Colors.grey)),
               ],
             ),
           ),

@@ -2,92 +2,316 @@ import 'package:acmms/screens/home/notification_screen.dart';
 import 'package:acmms/screens/task/task_list_screen.dart';
 import 'package:acmms/shared/app_bottom_navbar.dart';
 import 'package:acmms/shared/bottom_tab.dart';
-import 'package:acmms/core/service/service.dart';
 import 'package:flutter/material.dart';
+
+import '../../core/service/bed_service.dart';
+import '../../core/service/crop_service.dart';
+import '../../core/service/plot_service.dart';
+import '../../core/service/task_service.dart';
+import '../../models/task_model.dart';
 
 const Color primaryTeal = Color(0xFF1FCFC5);
 const Color darkTeal = Color(0xFF14B8B0);
 const Color bgColor = Color(0xFFF6F8F7);
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  List<TaskModel> tasks = [];
+  bool isLoading = true;
+  String? errorMessage;
+
+  int todo = 0;
+  int doing = 0;
+  int done = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAll();
+  }
+
+  Future<void> _loadAll({bool forceRefresh = false}) async {
+    if (!mounted) return;
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final results = await Future.wait([
+        TaskService.getTasks(forceRefresh: forceRefresh),
+        CropService.getCropMap(),
+        PlotService.getPlotMap(),
+        BedService.getBedMap(),
+      ]);
+
+      final data = results[0] as List<TaskModel>;
+      final cropMap = results[1] as Map<String, String>;
+      final plotMap = results[2] as Map<String, Map<String, dynamic>>;
+      final bedMap = results[3] as Map<String, Map<String, dynamic>>;
+
+      for (final task in data) {
+        final bedInfo = bedMap[task.bed];
+        if (bedInfo != null) {
+          task.bed = bedInfo['bedName']?.toString() ?? task.bed;
+          final plotId = bedInfo['plotId']?.toString() ?? '';
+          final plotInfo = plotMap[plotId];
+          if (plotInfo != null) {
+            task.area = plotInfo['plotName']?.toString() ?? task.area;
+            task.field = plotInfo['farmName']?.toString() ?? task.field;
+          }
+        }
+        final cropId = task.cropName;
+        if (cropMap.containsKey(cropId)) {
+          task.cropName = cropMap[cropId]!;
+        }
+      }
+
+      final todoCount =
+          data.where((e) => e.status == TaskStatus.pending).length;
+      final doingCount = data.where((e) => e.status == TaskStatus.doing).length;
+      final doneCount =
+          data.where((e) => e.status == TaskStatus.completed).length;
+
+      if (!mounted) return;
+      setState(() {
+        tasks = data;
+        todo = todoCount;
+        doing = doingCount;
+        done = doneCount;
+        isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        errorMessage = e.toString();
+      });
+    }
+  }
+
+  String _mapStatus(TaskStatus status) {
+    switch (status) {
+      case TaskStatus.doing:
+        return 'Đang làm';
+      case TaskStatus.completed:
+        return 'Hoàn thành';
+      case TaskStatus.urgent:
+        return 'Khẩn cấp';
+      default:
+        return 'Cần làm';
+    }
+  }
+
+  Color _mapColor(TaskStatus status) {
+    switch (status) {
+      case TaskStatus.doing:
+        return primaryTeal;
+      case TaskStatus.completed:
+        return Colors.green;
+      case TaskStatus.urgent:
+        return Colors.red;
+      default:
+        return Colors.orange;
+    }
+  }
+
+  String _buildLocation(TaskModel t) {
+    final parts = [t.field, t.area, t.bed]
+        .where((e) => e.isNotEmpty && e != 'Chưa có dữ liệu')
+        .toList();
+    return parts.isEmpty ? 'Chưa có dữ liệu' : parts.join(' - ');
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: bgColor,
-      body: Stack(
-        children: [
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 120),
+      body: SafeArea(
+        child: RefreshIndicator(
+          color: primaryTeal,
+          onRefresh: () => _loadAll(forceRefresh: true),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _Header(),
+                const SizedBox(height: 16),
+
+                const _WeatherCard(),
+                const SizedBox(height: 20),
+
+                _TaskSummary(todo: todo, doing: doing, done: done),
+                const SizedBox(height: 20),
+
+                const Text(
+                  'Nhiệm vụ hôm nay',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+
+                // TASK LIST
+                _buildTaskList(),
+              ],
+            ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: const AppBottomNav(currentTab: BottomTab.home),
+    );
+  }
+
+  Widget _buildTaskList() {
+    if (isLoading) {
+      return Column(
+        children: List.generate(3, (_) => const _TaskItemSkeleton()),
+      );
+    }
+
+    if (errorMessage != null) {
+      return Center(
+        child: Column(
+          children: [
+            const Icon(Icons.wifi_off, color: Colors.grey, size: 40),
+            const SizedBox(height: 8),
+            Text(
+              errorMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () => _loadAll(forceRefresh: true),
+              icon: const Icon(Icons.refresh, color: primaryTeal),
+              label:
+                  const Text('Thử lại', style: TextStyle(color: primaryTeal)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (tasks.isEmpty) {
+      return const Center(
+        child: Text(
+          'Không có nhiệm vụ nào hôm nay',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return Column(
+      children: tasks.take(3).map((t) {
+        return _TaskItem(
+          title: t.title,
+          location: _buildLocation(t),
+          time: t.timeRange,
+          status: _mapStatus(t.status),
+          color: _mapColor(t.status),
+          icon: t.avatarIcon,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TaskListScreen()),
+            );
+          },
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _TaskItemSkeleton extends StatefulWidget {
+  const _TaskItemSkeleton();
+
+  @override
+  State<_TaskItemSkeleton> createState() => _TaskItemSkeletonState();
+}
+
+class _TaskItemSkeletonState extends State<_TaskItemSkeleton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.4, end: 1.0).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _animation,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _Header(),
-                  SizedBox(height: 16),
-                  _WeatherCard(),
-                  SizedBox(height: 20),
-                  _TaskSummary(),
-                  SizedBox(height: 20),
-                  Text(
-                    'Nhiệm vụ hôm nay',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 12),
-                  _TaskItem(
-                    title: 'Tưới nước Khu C',
-                    location: 'Khu C - Luống 2',
-                    time: '08:00 - 09:30',
-                    status: 'Đang làm',
-                    color: primaryTeal,
-                    icon: Icons.water_drop,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const TaskListScreen()),
-                      );
-                    },
-                  ),
-                  _TaskItem(
-                    title: 'Kiểm tra sâu bệnh',
-                    location: 'Nhà kính B - Dãy 4',
-                    time: '10:00 - 11:30',
-                    status: 'Cần làm',
-                    color: Colors.orange,
-                    icon: Icons.bug_report,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const TaskListScreen()),
-                      );
-                    },
-                  ),
-                  _TaskItem(
-                    title: 'Bón phân hữu cơ',
-                    location: 'Khu A - Luống 5',
-                    time: '14:00 - 16:00',
-                    status: 'Cần làm',
-                    color: Colors.deepOrange,
-                    icon: Icons.eco,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const TaskListScreen()),
-                      );
-                    },
-                  ),
+                  Container(
+                      height: 14,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(6),
+                      )),
+                  const SizedBox(height: 8),
+                  Container(
+                      height: 12,
+                      width: 160,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(6),
+                      )),
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: const AppBottomNav(
-        currentTab: BottomTab.home,
+            const SizedBox(width: 12),
+            Container(
+              width: 70,
+              height: 28,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -132,9 +356,7 @@ class _Header extends StatelessWidget {
           onPressed: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => const NotificationScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const NotificationScreen()),
             );
           },
         ),
@@ -143,227 +365,85 @@ class _Header extends StatelessWidget {
   }
 }
 
-
-class _WeatherCard extends StatefulWidget {
+class _WeatherCard extends StatelessWidget {
   const _WeatherCard();
 
   @override
-  State<_WeatherCard> createState() => _WeatherCardState();
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [primaryTeal, darkTeal]),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: const [
+          Icon(Icons.wb_sunny, color: Colors.white, size: 32),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              '28°C - Nắng nhẹ\nThời tiết thuận lợi',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _WeatherInfo(
+                  icon: Icons.water_drop, label: 'Độ ẩm', value: '65%'),
+              SizedBox(height: 4),
+              _WeatherInfo(icon: Icons.air, label: 'Gió', value: '5 km/h'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _WeatherCardState extends State<_WeatherCard> {
-  final WeatherService _weatherService = WeatherService();
+class _WeatherInfo extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
 
-  double? temp;
-  String? description;
-  int? humidity;
-  double? windSpeed;
-
-  bool isLoading = true;
-  bool hasError = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadWeather();
-  }
-
-  Future<void> _loadWeather() async {
-    try {
-      final data = await _weatherService.getWeather(
-        lat: 10.8231,
-        lon: 106.6297,
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        temp = (data['main']['temp'] as num).toDouble();
-        description = data['weather'][0]['description'];
-        humidity = data['main']['humidity'];
-        windSpeed = (data['wind']['speed'] as num).toDouble();
-        isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        hasError = true;
-        isLoading = false;
-      });
-    }
-  }
+  const _WeatherInfo({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) return _loading();
-    if (hasError) return _error();
-    return _content();
-  }
-
-  Widget _content() {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: primaryTeal.withOpacity(0.08),
-            blurRadius: 25,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Thời tiết hôm nay',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                '${temp!.round()}°C',
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: primaryTeal.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  description!,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    color: darkTeal,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: primaryTeal.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.cloud,
-                  size: 26,
-                  color: primaryTeal,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              _WeatherInfo(
-                icon: Icons.water_drop,
-                label: 'Độ ẩm',
-                value: '$humidity%',
-              ),
-              const SizedBox(width: 20),
-              _WeatherInfo(
-                icon: Icons.air,
-                label: 'Gió',
-                value: '${(windSpeed! * 3.6).toStringAsFixed(1)} km/h',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _loading() {
-    return Container(
-      height: 120,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: const Center(
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          color: primaryTeal,
-        ),
-      ),
-    );
-  }
-
-  Widget _error() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.error_outline, color: Colors.red),
-          SizedBox(width: 8),
-          Text('Không thể tải dữ liệu thời tiết'),
-        ],
-      ),
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: Colors.white70),
+        const SizedBox(width: 4),
+        Text('$label: ',
+            style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 12)),
+      ],
     );
   }
 }
 
 class _TaskSummary extends StatelessWidget {
-  const _TaskSummary();
+  final int todo;
+  final int doing;
+  final int done;
+
+  const _TaskSummary({
+    required this.todo,
+    required this.doing,
+    required this.done,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Row(
-          children: [
-            const Text(
-              'Tóm tắt công việc hôm nay',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const Spacer(),
-            InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const TaskListScreen(),
-                  ),
-                );
-              },
-              child: const Text(
-                'Xem tất cả',
-                style: TextStyle(color: primaryTeal, fontSize: 13),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        const Row(
-          children: [
-            _SummaryItem(title: 'Cần làm', value: '3', color: Colors.orange),
-            _SummaryItem(
-                title: 'Đang thực hiện', value: '1', color: primaryTeal),
-            _SummaryItem(title: 'Hoàn thành', value: '0', color: Colors.green),
-          ],
-        ),
+        _SummaryItem('Cần làm', '$todo', Colors.orange),
+        _SummaryItem('Đang làm', '$doing', primaryTeal),
+        _SummaryItem('Hoàn thành', '$done', Colors.green),
       ],
     );
   }
@@ -374,18 +454,14 @@ class _SummaryItem extends StatelessWidget {
   final String value;
   final Color color;
 
-  const _SummaryItem({
-    required this.title,
-    required this.value,
-    required this.color,
-  });
+  const _SummaryItem(this.title, this.value, this.color);
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -393,14 +469,12 @@ class _SummaryItem extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(
-              value,
-              style: TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.bold, color: color),
-            ),
+            Text(value,
+                style: TextStyle(
+                    color: color, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             Text(title,
-                style: const TextStyle(fontSize: 12.5, color: Colors.grey)),
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
           ],
         ),
       ),
@@ -430,8 +504,8 @@ class _TaskItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
       onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
       child: Container(
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.all(14),
@@ -475,39 +549,6 @@ class _TaskItem extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _WeatherInfo extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _WeatherInfo({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: Colors.grey),
-        const SizedBox(width: 6),
-        Text(
-          '$label: ',
-          style: const TextStyle(fontSize: 12.5, color: Colors.grey),
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
     );
   }
 }
