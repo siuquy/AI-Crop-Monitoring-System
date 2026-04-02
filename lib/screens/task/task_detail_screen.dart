@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:acmms/core/service/api_client.dart';
-import 'package:acmms/screens/task/scan_result_screen.dart';
+import 'package:acmms/screens/report/scan_result_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:acmms/models/task_model.dart';
@@ -689,19 +689,24 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         // we will proceed anyway but without a pre-selected location.
         // The ReportDetailScreen will handle this by defaulting to the first available option.
         if (validFarmId == null || validPlotId == null || validBedId == null) {
-          debugPrint(
-              '[TaskDetailScreen] No valid location chain found. Navigating without pre-selected location.');
+          debugPrint('[TaskDetailScreen] No valid location chain found.');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Không thể xác định vị trí hợp lệ cho công việc này để tạo báo cáo.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return; // Abort the process
         }
 
         Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => ScanResultScreen(
             imagePath: pickedFile.path,
             analysisResult: result,
-            // Pass the found IDs, or an empty string if not found, to satisfy the required parameter.
-            // The ReportDetailScreen is designed to handle this by defaulting to the first item in dropdowns.
-            farmId: validFarmId ?? '',
-            plotId: validPlotId ?? '',
-            bedId: validBedId ?? '',
+            farmId: validFarmId!,
+            plotId: validPlotId!,
+            bedId: validBedId!,
           ),
         ));
       }

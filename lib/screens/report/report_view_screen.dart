@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'report_update_screen.dart';
-import 'report_screen.dart';
+import '../../models/report_status.dart';
 
 class ReportViewDetailScreen extends StatelessWidget {
+  final String reportId;
   final String imagePath;
   final String title;
   final String diseaseName;
@@ -13,13 +14,15 @@ class ReportViewDetailScreen extends StatelessWidget {
 
   const ReportViewDetailScreen({
     super.key,
+    required this.reportId,
     required this.imagePath,
     required this.title,
     required this.diseaseName,
     required this.level,
     required this.date,
     required this.status,
-    this.ownerComment = "Cần cung cấp thêm hình ảnh rõ hơn và mô tả chi tiết khu vực bị bệnh.",
+    this.ownerComment =
+        "Cần cung cấp thêm hình ảnh rõ hơn và mô tả chi tiết khu vực bị bệnh.",
   });
 
   Color getStatusColor() {
@@ -28,7 +31,7 @@ class ReportViewDetailScreen extends StatelessWidget {
         return Colors.green;
       case ReportStatus.pending:
         return Colors.orange;
-      case ReportStatus.needMoreInfo:
+      case ReportStatus.needsUpdate:
         return Colors.red;
     }
   }
@@ -39,7 +42,7 @@ class ReportViewDetailScreen extends StatelessWidget {
         return "Đã duyệt";
       case ReportStatus.pending:
         return "Chờ duyệt";
-      case ReportStatus.needMoreInfo:
+      case ReportStatus.needsUpdate:
         return "Yêu cầu bổ sung";
     }
   }
@@ -86,7 +89,7 @@ class ReportViewDetailScreen extends StatelessWidget {
   }
 
   Widget buildExpertComment() {
-    if (status != ReportStatus.needMoreInfo) {
+    if (status != ReportStatus.needsUpdate) {
       return const SizedBox();
     }
 
@@ -115,7 +118,7 @@ class ReportViewDetailScreen extends StatelessWidget {
   }
 
   Widget buildUpdateButton(BuildContext context) {
-    if (status != ReportStatus.needMoreInfo) {
+    if (status != ReportStatus.needsUpdate) {
       return const SizedBox();
     }
 
@@ -129,6 +132,7 @@ class ReportViewDetailScreen extends StatelessWidget {
               context,
               MaterialPageRoute(
                 builder: (_) => ReportUpdateScreen(
+                  reportId: reportId,
                   imagePath: imagePath,
                   title: title,
                   diseaseName: diseaseName,
@@ -152,11 +156,20 @@ class ReportViewDetailScreen extends StatelessWidget {
   Widget buildImage() {
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
-      child: Image.asset(
+      child: Image.network(
         imagePath,
         width: double.infinity,
         height: 240,
         fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const Center(child: CircularProgressIndicator());
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return const Center(
+            child: Icon(Icons.broken_image, color: Colors.grey, size: 48),
+          );
+        },
       ),
     );
   }

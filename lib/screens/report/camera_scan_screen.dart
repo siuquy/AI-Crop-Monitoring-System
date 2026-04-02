@@ -1,22 +1,17 @@
-import 'package:camera/camera.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import '../task/ai_service.dart';
 import 'scan_result_screen.dart';
 
+/// Một màn hình tạm thời để xử lý luồng quét bằng camera.
+/// Nó sẽ tự động mở camera, xử lý phân tích AI và điều hướng đến màn hình kết quả.
 class CameraScanScreen extends StatefulWidget {
-  final String farm;
-  final String field;
-  final String? area;
-  final String row;
   final String farmId;
   final String plotId;
   final String bedId;
-
   const CameraScanScreen({
     super.key,
-    required this.farm,
-    required this.field,
-    this.area,
-    required this.row,
     required this.farmId,
     required this.plotId,
     required this.bedId,
@@ -27,135 +22,91 @@ class CameraScanScreen extends StatefulWidget {
 }
 
 class _CameraScanScreenState extends State<CameraScanScreen> {
-  CameraController? _controller;
-  bool _detecting = true;
-  double _confidence = 0.95;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
-    _initCamera();
+    // Kích hoạt luồng quét ngay khi màn hình được xây dựng.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scanWithAI();
+    });
   }
 
-  Future<void> _initCamera() async {
-    final cameras = await availableCameras();
+  Future<void> _scanWithAI() async {
+    final XFile? pickedFile =
+        await _picker.pickImage(source: ImageSource.camera);
 
-    final backCamera =
-        cameras.firstWhere((c) => c.lensDirection == CameraLensDirection.back);
+    // Nếu người dùng hủy camera, quay lại màn hình trước đó.
+    if (pickedFile == null) {
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
 
-    _controller = CameraController(
-      backCamera,
-      ResolutionPreset.high,
-      enableAudio: false,
+    // Hiển thị hộp thoại đang tải trong khi chờ AI phân tích.
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Dialog(
+          child: Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 20),
+                Text("Đang phân tích bằng AI..."),
+              ],
+            ),
+          ),
+        );
+      },
     );
 
-    await _controller!.initialize();
+    try {
+      final result = await AIService.analyzePlantImage(File(pickedFile.path));
+      if (mounted) Navigator.of(context).pop(); // Đóng hộp thoại đang tải
 
-    if (mounted) setState(() {});
-  }
+      if (!mounted) return;
 
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _capture() async {
-    if (!_controller!.value.isInitialized) return;
-
-    final image = await _controller!.takePicture();
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
+      // Điều hướng đến màn hình kết quả với dữ liệu chính xác.
+      // Lỗi của bạn đã được khắc phục ở đây bằng cách truyền một Map `analysisResult`.
+      Navigator.of(context).pushReplacement(MaterialPageRoute(
         builder: (_) => ScanResultScreen(
-          imagePath: image.path,
-          diseaseName: 'Bệnh đạo ôn',
-          confidence: 0.95,
-          farm: widget.farm,
-          field: widget.field,
-          area: widget.area,
-          row: widget.row,
+          imagePath: pickedFile.path,
+          analysisResult: result,
           farmId: widget.farmId,
           plotId: widget.plotId,
           bedId: widget.bedId,
         ),
-      ),
-    );
+      ));
+    } catch (e) {
+      if (mounted) Navigator.of(context).pop(); // Đóng hộp thoại đang tải
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi phân tích: $e')),
+        );
+        // Quay lại màn hình trước đó nếu có lỗi.
+        Navigator.of(context).pop();
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_controller == null || !_controller!.value.isInitialized) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
+    // Màn hình này chủ yếu hiển thị trạng thái đang chờ.
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          CameraPreview(_controller!),
-          Center(
-            child: Container(
-              width: 260,
-              height: 260,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: const Color(0xFF1FCFC5),
-                  width: 3,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 140,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.check_circle,
-                    color: Color(0xFF1FCFC5), size: 18),
-                const SizedBox(width: 6),
-                Text(
-                  'Độ tin cậy: ${(_confidence * 100).toInt()}%  '
-                  '${_detecting ? 'Đang phát hiện...' : ''}',
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            bottom: 40,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: InkWell(
-                onTap: _capture,
-                child: Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFF1FCFC5),
-                      width: 4,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.camera,
-                    color: Color(0xFF1FCFC5),
-                    size: 30,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+      appBar: AppBar(title: const Text("Quét bằng Camera")),
+      body: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 20),
+            Text("Đang mở camera..."),
+          ],
+        ),
       ),
     );
   }

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../core/service/notifiactionservice.dart';
-import '../task/task_detail_screen.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
-const Color primaryTeal = Color(0xFF1FCFC5);
-const Color bgColor = Color(0xFFF6F8F7);
+import '../../core/service/notification_service.dart';
+import '../../models/notification.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -13,303 +12,132 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
-  final List<_NotificationData> notifications = [];
+  late Future<List<NotificationModel>> _notificationsFuture;
 
-  int _notifIdCounter = 100;
-  static Future<void> triggerNewTaskNotification({
-    required String taskTitle,
-    required String assignedBy,
-    String? taskId,
-  }) async {
-    final id = DateTime.now().millisecondsSinceEpoch % 100000;
-
-    await NotificationService.showNewTaskNotification(
-      id: id,
-      taskTitle: taskTitle,
-      assignedBy: assignedBy,
-      taskId: taskId,
-    );
+  @override
+  void initState() {
+    super.initState();
+    _notificationsFuture = NotificationService.getNotifications();
+    // Cài đặt ngôn ngữ cho timeago để hiển thị "phút trước", "giờ trước"...
+    timeago.setLocaleMessages('vi', timeago.ViMessages());
   }
 
-  void _handleTap(_NotificationData item) {
-    setState(() => item.unread = false);
-
-    switch (item.type) {
-      case 'task':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => TaskDetailScreen(taskId: item.referenceId),
-          ),
-        );
-        break;
-      case 'report':
-        Navigator.pushNamed(context, '/reportDetail',
-            arguments: item.referenceId);
-        break;
+  IconData _getIconForType(NotificationType type) {
+    switch (type) {
+      case NotificationType.taskAssigned:
+        return Icons.assignment_turned_in_outlined;
+      case NotificationType.reportApproved:
+        return Icons.check_circle_outline;
+      case NotificationType.reportNeedsUpdate:
+        return Icons.error_outline;
+      case NotificationType.general:
+      default:
+        return Icons.notifications_outlined;
     }
   }
 
-  void _markAllAsRead() {
-    setState(() {
-      for (var n in notifications) {
-        n.unread = false;
-      }
-    });
-  }
-
-  // ─── Thêm notification mới vào danh sách trong app ───────────────────────
-  void _addToInAppList(String title, String description) {
-    setState(() {
-      notifications.insert(
-        0,
-        _NotificationData(
-          icon: Icons.task_alt,
-          iconBg: const Color(0xFFF3E5F5),
-          iconColor: Colors.deepPurple,
-          title: title,
-          description: description,
-          time: 'Vừa xong',
-          type: 'task',
-          referenceId: 'task_$_notifIdCounter',
-          unread: true,
-        ),
-      );
-      _notifIdCounter++;
-    });
-  }
-
-  // ─── Nút test thủ công ────────────────────────────────────────────────────
-  Future<void> _sendTestNotification() async {
-    const taskTitle = 'Kiểm tra sâu bệnh khu vực B';
-    const assignedBy = 'Owner Nguyễn Văn A';
-    const taskId = 'task_999';
-
-    // 1. Bắn local notification lên system tray
-    await triggerNewTaskNotification(
-      taskTitle: taskTitle,
-      assignedBy: assignedBy,
-      taskId: taskId,
-    );
-
-    // 2. Thêm vào danh sách in-app
-    _addToInAppList(
-      'Nhiệm vụ mới: $taskTitle',
-      '$assignedBy vừa phân công cho bạn.',
-    );
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Đã gửi notification thử nghiệm'),
-          backgroundColor: primaryTeal,
-        ),
-      );
+  Color _getColorForType(NotificationType type) {
+    switch (type) {
+      case NotificationType.taskAssigned:
+        return Colors.blue.shade700;
+      case NotificationType.reportApproved:
+        return Colors.green.shade700;
+      case NotificationType.reportNeedsUpdate:
+        return Colors.red.shade700;
+      case NotificationType.general:
+      default:
+        return Colors.grey.shade700;
     }
+  }
+
+  void _handleNotificationTap(NotificationModel notification) {
+    // TODO: Triển khai điều hướng dựa trên loại thông báo và entityId
+    // Ví dụ:
+    // if (notification.type == NotificationType.taskAssigned && notification.entityId != null) {
+    //   Navigator.push(context, MaterialPageRoute(builder: (_) => TaskDetailScreen(taskId: notification.entityId!)));
+    // }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Đã nhấn vào thông báo: ${notification.title}')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: bgColor,
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: bgColor,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Thông báo',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          TextButton(
-            onPressed: _markAllAsRead,
-            child: const Text(
-              'Đánh dấu đã đọc',
-              style: TextStyle(
-                color: primaryTeal,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+        title: const Text('Thông báo'),
+        centerTitle: true,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0.5,
+      ),
+      backgroundColor: const Color(0xFFF6F8F7),
+      body: FutureBuilder<List<NotificationModel>>(
+        future: _notificationsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(child: Text('Lỗi tải thông báo: ${snapshot.error}'));
+          }
+
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.notifications_off_outlined,
+                      size: 60, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text('Bạn chưa có thông báo nào',
+                      style: TextStyle(color: Colors.grey)),
+                ],
               ),
-            ),
-          )
-        ],
-      ),
-      body: Column(
-        children: [
-          // ── Banner test notification ─────────────────────────────────────
-          Container(
-            margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            );
+          }
+
+          final notifications = snapshot.data!;
+
+          return ListView.separated(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE6F7F6),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: primaryTeal.withOpacity(0.3)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.notifications_active,
-                    color: primaryTeal, size: 20),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    'Trigger thủ công khi owner giao task',
-                    style: TextStyle(fontSize: 13, color: Colors.black87),
+            itemCount: notifications.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final notification = notifications[index];
+              final color = _getColorForType(notification.type);
+
+              return Card(
+                elevation: 2,
+                margin: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListTile(
+                  onTap: () => _handleNotificationTap(notification),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  leading: CircleAvatar(
+                    backgroundColor: color.withOpacity(0.1),
+                    child:
+                        Icon(_getIconForType(notification.type), color: color),
+                  ),
+                  title: Text(
+                    notification.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(notification.body),
+                  trailing: Text(
+                    timeago.format(notification.createdAt, locale: 'vi'),
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                 ),
-                ElevatedButton(
-                  onPressed: _sendTestNotification,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryTeal,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text('Gửi thử',
-                      style: TextStyle(fontSize: 12, color: Colors.white)),
-                ),
-              ],
-            ),
-          ),
-
-          // ── Danh sách notification ───────────────────────────────────────
-          Expanded(
-            child: notifications.isEmpty
-                ? const Center(child: Text('Không có thông báo nào'))
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: notifications.length,
-                    itemBuilder: (context, index) {
-                      final item = notifications[index];
-                      return GestureDetector(
-                        onTap: () => _handleTap(item),
-                        child: _NotificationItem(
-                          icon: item.icon,
-                          iconBg: item.iconBg,
-                          iconColor: item.iconColor,
-                          title: item.title,
-                          description: item.description,
-                          time: item.time,
-                          unread: item.unread,
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NotificationData {
-  final IconData icon;
-  final Color iconBg;
-  final Color iconColor;
-  final String title;
-  final String description;
-  final String time;
-  final String type;
-  final String referenceId;
-  bool unread;
-
-  _NotificationData({
-    required this.icon,
-    required this.iconBg,
-    required this.iconColor,
-    required this.title,
-    required this.description,
-    required this.time,
-    required this.type,
-    required this.referenceId,
-    this.unread = false,
-  });
-}
-
-class _NotificationItem extends StatelessWidget {
-  final IconData icon;
-  final Color iconBg;
-  final Color iconColor;
-  final String title;
-  final String description;
-  final String time;
-  final bool unread;
-
-  const _NotificationItem({
-    required this.icon,
-    required this.iconBg,
-    required this.iconColor,
-    required this.title,
-    required this.description,
-    required this.time,
-    this.unread = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: unread ? const Color(0xFFEFFFFE) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 14.5),
-                      ),
-                    ),
-                    if (unread)
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: primaryTeal,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(description,
-                    style: const TextStyle(fontSize: 12.5, color: Colors.grey)),
-                const SizedBox(height: 6),
-                Text(time,
-                    style: const TextStyle(fontSize: 11.5, color: Colors.grey)),
-              ],
-            ),
-          ),
-        ],
+              );
+            },
+          );
+        },
       ),
     );
   }

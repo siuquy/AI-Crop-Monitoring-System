@@ -56,47 +56,5 @@ class AIService {
     };
   }
 
-  // Simulates creating a report and uploading the image and analysis data.
-  static Future<void> createReport({
-    required File image,
-    required Map<String, dynamic> analysisData,
-  }) async {
-    // Simulate network latency for upload
-    await Future.delayed(const Duration(seconds: 2));
-
-    // Simulate a random success or failure for the upload
-    final random = Random();
-    if (random.nextDouble() < 0.15) {
-      // 15% chance of upload failure
-      throw Exception('Không thể tải báo cáo lên máy chủ. Vui lòng thử lại.');
-    }
-
-    // In a real app, you would use http.MultipartRequest to upload the image
-    // and analysisData as JSON.
-    _log('--- Simulating Report Upload ---');
-    _log('Uploading image: ${image.path}');
-    _log('Uploading analysis data: $analysisData');
-    _log('--- Report Uploaded Successfully ---');
-  }
-
-  // Simulates submitting feedback for incorrect analysis.
-  static Future<void> submitFeedback({
-    required File image,
-    required Map<String, dynamic> analysisData,
-  }) async {
-    // Simulate network latency for feedback submission
-    await Future.delayed(const Duration(seconds: 1));
-
-    // In a real app, you would upload the image and analysis data
-    // to a specific endpoint for review by a human or for retraining the model.
-    _log('--- Simulating Incorrect Analysis Feedback ---');
-    _log('Image path: ${image.path}');
-    _log('Analysis data reported as incorrect: $analysisData');
-    _log('--- Feedback Submitted ---');
-
-    if (Random().nextDouble() < 0.05) {
-      // 5% chance of failure
-      throw Exception('Không thể gửi phản hồi. Vui lòng kiểm tra kết nối.');
-    }
-  }
+  // Simulates
 }

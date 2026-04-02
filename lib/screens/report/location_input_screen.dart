@@ -223,11 +223,8 @@ class _LocationInputScreenState extends State<LocationInputScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
+        // Pass the selected location IDs to the camera screen.
         builder: (_) => CameraScanScreen(
-          farm: selectedFarmName!,
-          field: selectedPlotName!,
-          area: '', // Khu is removed
-          row: selectedBedName!,
           farmId: selectedFarmId!,
           plotId: selectedPlotId!,
           bedId: selectedBedId!,

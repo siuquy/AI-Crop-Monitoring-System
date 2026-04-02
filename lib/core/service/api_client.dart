@@ -29,13 +29,12 @@ class ApiClient {
   String? _authToken;
   static String get _baseUrl {
     if (kIsWeb) {
-      return 'http://localhost:5298'; // Sử dụng HTTP và cổng 5298 cho web
+      return 'https://localhost:7093';
     }
     if (Platform.isAndroid) {
-      return 'http://10.0.2.2:5298'; // Sử dụng HTTP và cổng 5298 cho Android emulator
+      return 'https://10.0.2.2:7093';
     }
-    // Dành cho iOS hoặc các nền tảng khác
-    return 'http://localhost:5298'; // Sử dụng HTTP và cổng 5298 cho iOS/other
+    return 'https://localhost:7093';
   }
 
   static const Duration _timeout = Duration(seconds: 10);
@@ -80,11 +79,16 @@ class ApiClient {
           )
           .timeout(_timeout);
       return _handleResponse(response);
-    } on SocketException {
+    } on SocketException catch (e) {
+      _log('SocketException on GET $uri: $e');
       throw ApiException(
           'Không thể kết nối tới server. Hãy kiểm tra kết nối mạng và backend.');
-    } on TimeoutException {
+    } on TimeoutException catch (e) {
+      _log('TimeoutException on GET $uri: $e');
       throw ApiException('Server phản hồi quá lâu. Vui lòng thử lại.');
+    } catch (e) {
+      _log('Unexpected error on GET $uri: $e');
+      throw ApiException('Đã xảy ra lỗi không mong muốn: $e');
     }
   }
 
@@ -100,11 +104,16 @@ class ApiClient {
           )
           .timeout(_timeout);
       return _handleResponse(response);
-    } on SocketException {
+    } on SocketException catch (e) {
+      _log('SocketException on POST $uri: $e');
       throw ApiException(
           'Không thể kết nối tới server. Hãy kiểm tra kết nối mạng và backend.');
-    } on TimeoutException {
+    } on TimeoutException catch (e) {
+      _log('TimeoutException on POST $uri: $e');
       throw ApiException('Server phản hồi quá lâu. Vui lòng thử lại.');
+    } catch (e) {
+      _log('Unexpected error on POST $uri: $e');
+      throw ApiException('Đã xảy ra lỗi không mong muốn: $e');
     }
   }
 
@@ -118,7 +127,11 @@ class ApiClient {
     _log('POST (Multipart) $uri');
     try {
       final request = http.MultipartRequest('POST', uri);
-      request.headers.addAll(_getHeaders());
+      // For multipart requests, we should not set Content-Type manually.
+      // The http package does this for us with the correct boundary.
+      final headers = _getHeaders();
+      headers.remove('Content-Type');
+      request.headers.addAll(headers);
 
       if (fields != null) {
         request.fields.addAll(fields);
@@ -137,11 +150,62 @@ class ApiClient {
       final response = await http.Response.fromStream(streamedResponse);
 
       return _handleResponse(response);
-    } on SocketException {
+    } on SocketException catch (e) {
+      _log('SocketException on Multipart POST $uri: $e');
       throw ApiException(
           'Không thể kết nối tới server. Hãy kiểm tra kết nối mạng và backend.');
-    } on TimeoutException {
+    } on TimeoutException catch (e) {
+      _log('TimeoutException on Multipart POST $uri: $e');
       throw ApiException('Server phản hồi quá lâu. Vui lòng thử lại.');
+    } catch (e) {
+      _log('Unexpected error on Multipart POST $uri: $e');
+      throw ApiException('Đã xảy ra lỗi không mong muốn: $e');
+    }
+  }
+
+  Future<dynamic> putMultipart(
+    String path, {
+    Map<String, String>? fields,
+    File? file,
+    String fileField = 'file',
+  }) async {
+    final uri = _buildUri(path);
+    _log('PUT (Multipart) $uri');
+    try {
+      final request = http.MultipartRequest('PUT', uri);
+      // For multipart requests, we should not set Content-Type manually.
+      // The http package does this for us with the correct boundary.
+      final headers = _getHeaders();
+      headers.remove('Content-Type');
+      request.headers.addAll(headers);
+
+      if (fields != null) {
+        request.fields.addAll(fields);
+      }
+
+      if (file != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            fileField,
+            file.path,
+          ),
+        );
+      }
+
+      final streamedResponse = await request.send().timeout(_timeout);
+      final response = await http.Response.fromStream(streamedResponse);
+
+      return _handleResponse(response);
+    } on SocketException catch (e) {
+      _log('SocketException on Multipart PUT $uri: $e');
+      throw ApiException(
+          'Không thể kết nối tới server. Hãy kiểm tra kết nối mạng và backend.');
+    } on TimeoutException catch (e) {
+      _log('TimeoutException on Multipart PUT $uri: $e');
+      throw ApiException('Server phản hồi quá lâu. Vui lòng thử lại.');
+    } catch (e) {
+      _log('Unexpected error on Multipart PUT $uri: $e');
+      throw ApiException('Đã xảy ra lỗi không mong muốn: $e');
     }
   }
 

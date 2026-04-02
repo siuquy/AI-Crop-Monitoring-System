@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../core/service/api_client.dart';
+import '../../core/service/report_service.dart';
 
 class ReportUpdateScreen extends StatefulWidget {
+  final String reportId;
   final String imagePath;
   final String title;
   final String diseaseName;
@@ -11,6 +12,7 @@ class ReportUpdateScreen extends StatefulWidget {
 
   const ReportUpdateScreen({
     super.key,
+    required this.reportId,
     required this.imagePath,
     required this.title,
     required this.diseaseName,
@@ -45,8 +47,8 @@ class _ReportUpdateScreenState extends State<ReportUpdateScreen> {
     }
   }
 
-  void submitUpdate() {
-    if (descriptionController.text.isEmpty) {
+  Future<void> submitUpdate() async {
+    if (descriptionController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Vui lòng nhập mô tả bổ sung"),
@@ -55,15 +57,38 @@ class _ReportUpdateScreenState extends State<ReportUpdateScreen> {
       return;
     }
 
-    // TODO: gửi dữ liệu lên server / firebase / api
+    setState(() => _isLoading = true);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Đã gửi bổ sung báo cáo"),
-      ),
-    );
+    try {
+      await ReportService.updateReport(
+        reportId: widget.reportId,
+        description: descriptionController.text.trim(),
+        newImage: newImage,
+      );
 
-    Navigator.pop(context);
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Cập nhật báo cáo thành công!"),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.of(context).pop(true); // Pop with a result to indicate success
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Lỗi cập nhật báo cáo: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Widget buildImageSection() {
@@ -89,9 +114,19 @@ class _ReportUpdateScreenState extends State<ReportUpdateScreen> {
                     newImage!,
                     fit: BoxFit.cover,
                   )
-                : Image.file(
-                    File(widget.imagePath),
+                : Image.network(
+                    widget.imagePath,
                     fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(child: CircularProgressIndicator());
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Center(
+                        child: Icon(Icons.broken_image,
+                            color: Colors.grey, size: 48),
+                      );
+                    },
                   ),
           ),
         ),
@@ -221,14 +256,16 @@ class _ReportUpdateScreenState extends State<ReportUpdateScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: submitUpdate,
+                onPressed: _isLoading ? null : submitUpdate,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: const Text(
-                  "Gửi lại báo cáo",
-                  style: TextStyle(fontSize: 16),
-                ),
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text(
+                        "Gửi lại báo cáo",
+                        style: TextStyle(fontSize: 16),
+                      ),
               ),
             )
           ],

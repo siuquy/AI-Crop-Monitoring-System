@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../core/service/report_service.dart';
 import '../../models/report.dart';
 import '../../models/report_status.dart';
+import 'report_detail_screen.dart'; // Import màn hình chi tiết
 import 'report_update_screen.dart';
 
 class ReportListScreen extends StatefulWidget {
@@ -16,24 +17,35 @@ class ReportListScreen extends StatefulWidget {
 class _ReportListScreenState extends State<ReportListScreen> {
   late Future<List<Report>> _reportsFuture;
 
+  void _loadReports() {
+    setState(() {
+      _reportsFuture = ReportService.getReports();
+    });
+  }
+
   @override
   void initState() {
     super.initState();
-    _reportsFuture = ReportService.getReports();
+    _loadReports();
   }
 
-  void _navigateToUpdateScreen(Report report) {
-    Navigator.push(
+  void _navigateToUpdateScreen(Report report) async {
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ReportUpdateScreen(
+          reportId: report.id,
           title: report.title,
-          diseaseName: report.diseaseName,
-          imagePath: report.imageUrl, // Cần xử lý đường dẫn này
+          diseaseName: report.diseaseName ?? '',
+          imagePath: report.imageUrl ?? '',
           ownerComment: report.ownerComment ?? '',
         ),
       ),
     );
+    // If the update screen returns true, it means the report was updated successfully.
+    if (result == true) {
+      _loadReports(); // Refresh the list
+    }
   }
 
   @override
@@ -52,8 +64,26 @@ class _ReportListScreenState extends State<ReportListScreen> {
           }
 
           if (snapshot.hasError) {
-            return Center(
-              child: Text('Lỗi tải dữ liệu: ${snapshot.error}'),
+            return Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Lỗi tải dữ liệu:\n${snapshot.error}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: _loadReports,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Thử lại'),
+                    ),
+                  ],
+                ),
+              ),
             );
           }
 
@@ -65,28 +95,31 @@ class _ReportListScreenState extends State<ReportListScreen> {
 
           final reports = snapshot.data!;
 
-          return ListView.separated(
-            padding: const EdgeInsets.all(12),
-            itemCount: reports.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final report = reports[index];
-              return _ReportListItem(
-                report: report,
-                onTap: () {
-                  if (report.status == ReportStatus.needsUpdate) {
-                    _navigateToUpdateScreen(report);
-                  } else {
-                    // TODO: Điều hướng đến màn hình chi tiết báo cáo (read-only)
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Xem chi tiết báo cáo: ${report.title}'),
-                      ),
-                    );
-                  }
-                },
-              );
-            },
+          return RefreshIndicator(
+            onRefresh: () async => _loadReports(),
+            child: ListView.separated(
+              padding: const EdgeInsets.all(12),
+              itemCount: reports.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final report = reports[index];
+                return _ReportListItem(
+                  report: report,
+                  onTap: () {
+                    if (report.status == ReportStatus.needsUpdate) {
+                      _navigateToUpdateScreen(report);
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ReportDetailScreen(report: report),
+                        ),
+                      );
+                    }
+                  },
+                );
+              },
+            ),
           );
         },
       ),
@@ -135,8 +168,14 @@ class _ReportListItem extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Bệnh: ${report.diseaseName}',
-                style: const TextStyle(color: Colors.black54, fontSize: 14),
+                report.description ?? 'Không có mô tả.',
+                style: TextStyle(
+                    color: report.description != null
+                        ? Colors.black54
+                        : Colors.grey,
+                    fontSize: 14),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 12),
               Row(
@@ -150,6 +189,43 @@ class _ReportListItem extends StatelessWidget {
                   ),
                 ],
               ),
+              if (report.workerName != null && report.workerName!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.person_outline,
+                          size: 14, color: Colors.grey),
+                      const SizedBox(width: 6),
+                      Text('Người tạo: ${report.workerName}',
+                          style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                    ],
+                  ),
+                ),
+              
+              if (report.status == ReportStatus.needsUpdate &&
+                  report.ownerComment != null &&
+                  report.ownerComment!.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade100),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.comment_outlined,
+                          size: 16, color: Colors.red.shade700),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: Text('Lý do: ${report.ownerComment!}',
+                              style: TextStyle(color: Colors.red.shade800))),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),

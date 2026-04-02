@@ -8,7 +8,9 @@ import '../../core/service/bed_service.dart';
 import '../../core/service/crop_service.dart';
 import '../../core/service/plot_service.dart';
 import '../../core/service/task_service.dart';
+import '../../core/service/worker_service.dart';
 import '../../models/task_model.dart';
+import '../../models/worker.dart';
 
 const Color primaryTeal = Color(0xFF1FCFC5);
 const Color darkTeal = Color(0xFF14B8B0);
@@ -25,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<TaskModel> tasks = [];
   bool isLoading = true;
   String? errorMessage;
+  Worker? _currentWorker;
 
   int todo = 0;
   int doing = 0;
@@ -49,12 +52,14 @@ class _HomeScreenState extends State<HomeScreen> {
         CropService.getCropMap(),
         PlotService.getPlotMap(),
         BedService.getBedMap(),
+        WorkerService.getCurrentWorker(),
       ]);
 
       final data = results[0] as List<TaskModel>;
       final cropMap = results[1] as Map<String, String>;
       final plotMap = results[2] as Map<String, Map<String, dynamic>>;
       final bedMap = results[3] as Map<String, Map<String, dynamic>>;
+      final worker = results[4] as Worker;
 
       for (final task in data) {
         final bedInfo = bedMap[task.bed];
@@ -85,6 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
         todo = todoCount;
         doing = doingCount;
         done = doneCount;
+        _currentWorker = worker;
         isLoading = false;
       });
     } catch (e) {
@@ -143,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _Header(),
+                _Header(worker: _currentWorker),
                 const SizedBox(height: 16),
 
                 const _WeatherCard(),
@@ -318,27 +324,35 @@ class _TaskItemSkeletonState extends State<_TaskItemSkeleton>
 }
 
 class _Header extends StatelessWidget {
-  const _Header();
+  final Worker? worker;
+  const _Header({this.worker});
 
   @override
   Widget build(BuildContext context) {
+    // Use worker's last name for a more personal greeting. Default to 'bạn'.
+    final workerName = worker?.fullName.split(' ').last ?? 'bạn';
+    final avatarUrl = worker?.avatarUrl;
+
     return Row(
       children: [
-        const CircleAvatar(
+        CircleAvatar(
           radius: 22,
-          backgroundImage: AssetImage('assets/avatar.png'),
+          backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
+              ? NetworkImage(avatarUrl)
+              : const AssetImage('assets/avatar.png') as ImageProvider,
         ),
         const SizedBox(width: 12),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Chào buổi sáng, Minh!',
-                style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w600),
+                'Chào buổi sáng, $workerName!',
+                style: const TextStyle(
+                    fontSize: 16.5, fontWeight: FontWeight.w600),
               ),
-              SizedBox(height: 4),
-              Row(
+              const SizedBox(height: 4),
+              const Row(
                 children: [
                   Icon(Icons.location_on, size: 14, color: Colors.grey),
                   SizedBox(width: 4),

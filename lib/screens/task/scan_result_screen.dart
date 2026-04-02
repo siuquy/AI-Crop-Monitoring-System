@@ -1,7 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'ai_service.dart';
-import '../report/report_detail_screen.dart';
+import '../../core/service/report_service.dart';
+import '../../screens/report/report_detail_screen.dart';
 
 const Color primaryTeal = Color(0xFF1FCFC5);
 
@@ -28,7 +29,7 @@ class ScanResultScreen extends StatefulWidget {
 }
 
 class _ScanResultScreenState extends State<ScanResultScreen> {
-  bool _isSubmittingFeedback = false;
+  bool _isCreatingReport = false;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +59,6 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
             _buildImageCard(),
             const SizedBox(height: 20),
             _buildResultHeader(diseaseName, confidence),
-            _buildFeedbackButton(),
             const Divider(height: 32),
             _buildSection('Mô tả', description),
             if (symptoms.isNotEmpty)
@@ -173,77 +173,54 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
     );
   }
 
-  Widget _buildFeedbackButton() {
-    // Don't show feedback button if the plant is healthy
-    if (widget.analysisResult['isHealthy'] == true) {
-      return const SizedBox.shrink();
-    }
-    return Align(
-      alignment: Alignment.centerRight,
-      child: TextButton.icon(
-        onPressed: _isSubmittingFeedback ? null : _reportIncorrectAnalysis,
-        icon: const Icon(Icons.thumb_down_alt_outlined, size: 16),
-        label: Text(
-          _isSubmittingFeedback ? 'Đang gửi...' : 'Báo cáo không chính xác',
-          style: const TextStyle(fontSize: 12),
-        ),
-        style: TextButton.styleFrom(
-          foregroundColor: Colors.grey.shade700,
-        ),
-      ),
-    );
-  }
-
-  Future<void> _reportIncorrectAnalysis() async {
+  Future<void> _createReport() async {
     setState(() {
-      _isSubmittingFeedback = true;
+      _isCreatingReport = true;
     });
 
     try {
-      await AIService.submitFeedback(
+      final String title = widget.analysisResult['diseaseName'] ?? 'Báo cáo AI';
+      final String description =
+          widget.analysisResult['description'] ?? 'Không có mô tả.';
+
+      final newReport = await ReportService.createReport(
+        title: title,
+        description: description,
         image: File(widget.imagePath),
-        analysisData: widget.analysisResult,
+        farmId: widget.farmId,
+        plotId: widget.plotId,
+        bedId: widget.bedId,
       );
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Cảm ơn bạn đã giúp chúng tôi cải thiện AI!'),
-          backgroundColor: Colors.blue,
+          content: Text('Tạo báo cáo thành công!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => ReportDetailScreen(report: newReport),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Lỗi gửi phản hồi: $e'),
+          content: Text('Lỗi tạo báo cáo: $e'),
           backgroundColor: Colors.red,
         ),
       );
     } finally {
       if (mounted) {
-        setState(() => _isSubmittingFeedback = false);
+        setState(() {
+          _isCreatingReport = false;
+        });
       }
     }
-  }
-
-  Future<void> _createReport() async {
-    // Navigate to the detailed report creation screen, passing all necessary data.
-    // This replaces the mock AIService.createReport call.
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ReportDetailScreen(
-          imagePath: widget.imagePath,
-          diseaseName: widget.analysisResult['diseaseName'] ?? 'Không xác định',
-          confidence: widget.analysisResult['confidence'] ?? 0.0,
-          selectedFarmId: widget.farmId,
-          selectedPlotId: widget.plotId,
-          selectedBedId: widget.bedId,
-        ),
-      ),
-    );
   }
 
   Widget _buildActionButtons(
@@ -277,7 +254,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: ElevatedButton.icon(
-              onPressed: _isSubmittingFeedback ? null : _createReport,
+              onPressed: _isCreatingReport ? null : _createReport,
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryTeal,
                 minimumSize: const Size.fromHeight(50),
@@ -287,7 +264,9 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                 disabledBackgroundColor: Colors.grey.shade300,
               ),
               icon: const Icon(Icons.description),
-              label: const Text('Tạo báo cáo'),
+              label: _isCreatingReport
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text('Tạo báo cáo'),
             ),
           ),
         ],

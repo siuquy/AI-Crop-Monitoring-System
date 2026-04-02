@@ -2,15 +2,31 @@ import 'package:acmms/screens/features/auth/worker_login.dart';
 import 'package:acmms/shared/app_bottom_navbar.dart';
 import 'package:acmms/shared/bottom_tab.dart';
 import 'package:flutter/material.dart';
+import '../../core/service/worker_service.dart';
+import '../../models/worker.dart';
 import 'profile_screen.dart';
 import 'change_password_screen.dart';
 import 'help_screen.dart';
 import 'about_app_screen.dart';
+import 'report_problem_screen.dart';
 
 const Color primaryTeal = Color(0xFF1FCFC5);
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  late Future<Worker> _workerFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _workerFuture = WorkerService.getCurrentWorker();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +67,11 @@ class SettingsScreen extends StatelessWidget {
             title: 'Thông tin ứng dụng',
             onTap: () => _go(context, const AboutAppScreen()),
           ),
+          _settingItem(
+            icon: Icons.bug_report_outlined,
+            title: 'Báo lỗi / Góp ý',
+            onTap: () => _go(context, const ReportProblemScreen()),
+          ),
           const SizedBox(height: 24),
           _logoutButton(context),
         ],
@@ -60,38 +81,58 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Widget _profileCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            radius: 28,
-            backgroundImage: AssetImage('assets/avatar.png'),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return FutureBuilder<Worker>(
+        future: _workerFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(child: Text('Lỗi tải hồ sơ: ${snapshot.error}'));
+          }
+
+          if (!snapshot.hasData) {
+            return const Center(child: Text('Không có dữ liệu người dùng.'));
+          }
+
+          final worker = snapshot.data!;
+
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
               children: [
-                Text(
-                  'Nguyễn Văn A',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                CircleAvatar(
+                  radius: 28,
+                  backgroundImage: (worker.avatarUrl != null &&
+                          worker.avatarUrl!.isNotEmpty)
+                      ? NetworkImage(worker.avatarUrl!)
+                      : const AssetImage('assets/avatar.png') as ImageProvider,
                 ),
-                SizedBox(height: 4),
-                Text(
-                  'Nông dân',
-                  style: TextStyle(color: Colors.grey),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        worker.fullName,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(worker.role,
+                          style: const TextStyle(color: Colors.grey)),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
+          );
+        });
   }
 
   Widget _sectionTitle(String text) {
