@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/service/api_client.dart';
 
 class ReportUpdateScreen extends StatefulWidget {
   final String imagePath;
@@ -22,10 +23,18 @@ class ReportUpdateScreen extends StatefulWidget {
 
 class _ReportUpdateScreenState extends State<ReportUpdateScreen> {
   final TextEditingController descriptionController = TextEditingController();
-  File? newImage;
-
   final ImagePicker picker = ImagePicker();
 
+  File? newImage;
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    descriptionController.dispose();
+    super.dispose();
+  }
+
+  // Logic để chọn ảnh
   Future<void> pickImage(ImageSource source) async {
     final picked = await picker.pickImage(source: source);
 

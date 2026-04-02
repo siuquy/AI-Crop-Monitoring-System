@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'ai_service.dart';
+import '../report/report_detail_screen.dart';
 
 const Color primaryTeal = Color(0xFF1FCFC5);
 
@@ -8,10 +9,18 @@ class ScanResultScreen extends StatefulWidget {
   final String imagePath;
   final Map<String, dynamic> analysisResult;
 
+  // Add location IDs to pass to the report screen
+  final String farmId;
+  final String plotId;
+  final String bedId;
+
   const ScanResultScreen({
     super.key,
     required this.imagePath,
     required this.analysisResult,
+    required this.farmId,
+    required this.plotId,
+    required this.bedId,
   });
 
   @override
@@ -19,7 +28,6 @@ class ScanResultScreen extends StatefulWidget {
 }
 
 class _ScanResultScreenState extends State<ScanResultScreen> {
-  bool _isUploading = false;
   bool _isSubmittingFeedback = false;
 
   @override
@@ -173,9 +181,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
     return Align(
       alignment: Alignment.centerRight,
       child: TextButton.icon(
-        onPressed: _isSubmittingFeedback || _isUploading
-            ? null
-            : _reportIncorrectAnalysis,
+        onPressed: _isSubmittingFeedback ? null : _reportIncorrectAnalysis,
         icon: const Icon(Icons.thumb_down_alt_outlined, size: 16),
         label: Text(
           _isSubmittingFeedback ? 'Đang gửi...' : 'Báo cáo không chính xác',
@@ -223,40 +229,21 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
   }
 
   Future<void> _createReport() async {
-    setState(() {
-      _isUploading = true;
-    });
-
-    try {
-      await AIService.createReport(
-        image: File(widget.imagePath),
-        analysisData: widget.analysisResult,
-      );
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tạo và gửi báo cáo thành công!'),
-          backgroundColor: Colors.green,
+    // Navigate to the detailed report creation screen, passing all necessary data.
+    // This replaces the mock AIService.createReport call.
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReportDetailScreen(
+          imagePath: widget.imagePath,
+          diseaseName: widget.analysisResult['diseaseName'] ?? 'Không xác định',
+          confidence: widget.analysisResult['confidence'] ?? 0.0,
+          selectedFarmId: widget.farmId,
+          selectedPlotId: widget.plotId,
+          selectedBedId: widget.bedId,
         ),
-      );
-      Navigator.of(context).pop();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Lỗi: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isUploading = false;
-        });
-      }
-    }
+      ),
+    );
   }
 
   Widget _buildActionButtons(
@@ -277,8 +264,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         children: [
           Expanded(
             child: OutlinedButton(
-              onPressed:
-                  _isUploading ? null : () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(context).pop(),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
                 shape: RoundedRectangleBorder(
@@ -291,8 +277,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: ElevatedButton.icon(
-              onPressed:
-                  _isUploading || _isSubmittingFeedback ? null : _createReport,
+              onPressed: _isSubmittingFeedback ? null : _createReport,
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryTeal,
                 minimumSize: const Size.fromHeight(50),
@@ -301,14 +286,8 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                 ),
                 disabledBackgroundColor: Colors.grey.shade300,
               ),
-              icon: _isUploading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.description),
-              label: Text(_isUploading ? 'Đang gửi...' : 'Tạo báo cáo'),
+              icon: const Icon(Icons.description),
+              label: const Text('Tạo báo cáo'),
             ),
           ),
         ],

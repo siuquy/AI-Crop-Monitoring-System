@@ -4,6 +4,12 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+def keyPropertiesFile = rootProject.file("android/key.properties")
+def keyProperties = new Properties()
+if (keyPropertiesFile.exists()) {
+    keyProperties.load(new FileInputStream(keyPropertiesFile))
+}
+
 android {
     namespace = "com.example.acmms"
     compileSdk = flutter.compileSdkVersion
@@ -19,6 +25,17 @@ android {
         jvmTarget = "11"
     }
 
+    signingConfigs {
+        release {
+            if (keyPropertiesFile.exists()) {
+                storeFile file(keyProperties['storeFile'])
+                storePassword keyProperties['storePassword']
+                keyAlias keyProperties['keyAlias']
+                keyPassword keyProperties['keyPassword']
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.example.acmms"
         minSdk = flutter.minSdkVersion
@@ -29,7 +46,8 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.debug
+            // You'll need to create a signing key and add the credentials to `key.properties`
+            signingConfig signingConfigs.release
         }
     }
 }

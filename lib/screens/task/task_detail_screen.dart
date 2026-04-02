@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:acmms/core/service/api_client.dart';
 import 'package:acmms/screens/task/scan_result_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,6 +10,23 @@ import 'package:acmms/core/service/bed_service.dart';
 import 'package:acmms/core/service/plot_service.dart';
 import 'package:acmms/core/service/farm_service.dart';
 import 'ai_service.dart';
+
+/// A data class to hold all the necessary, resolved data for displaying the task detail screen.
+/// This avoids complex data lookups and processing within the build methods.
+class TaskDisplayData {
+  final TaskModel task;
+  final String cropName;
+  final String farmName;
+  final String plotName;
+  final String bedName;
+
+  TaskDisplayData(
+      {required this.task,
+      required this.cropName,
+      required this.farmName,
+      required this.plotName,
+      required this.bedName});
+}
 
 class TaskDetailScreen extends StatefulWidget {
   final String taskId;
@@ -23,74 +41,89 @@ class TaskDetailScreen extends StatefulWidget {
 }
 
 class _TaskDetailScreenState extends State<TaskDetailScreen> {
-  late Future<TaskModel> _taskFuture;
+  late Future<TaskDisplayData> _taskDisplayFuture;
   TaskModel? _task;
   final TextEditingController _updateController = TextEditingController();
   final List<File> _images = [];
   final ImagePicker _picker = ImagePicker();
   bool _taskWasModified = false;
 
+  // Store loaded data in state to be accessible by other methods like _scanWithAI
+  Map<String, dynamic> _seasonDetailMap = {};
+  Map<String, Map<String, dynamic>> _bedMap = {};
+  Map<String, Map<String, dynamic>> _plotMap = {};
+  Map<String, String> _farmMap = {};
+
   @override
   void initState() {
     super.initState();
-    _taskFuture = _loadTaskDetails();
+    _taskDisplayFuture = _loadAndProcessTaskDetails();
   }
 
-  Future<TaskModel> _loadTaskDetails() async {
-    final task = await TaskService.getTaskById(widget.taskId);
-    final results = await Future.wait([
-      SeasonDetailService.getSeasonDetailMap(),
-      BedService.getBedMap(),
-      PlotService.getPlotMap(),
-      FarmService.getFarmMap(),
-    ]);
+  /// This is the new, robust method to load and process all data needed for the screen.
+  Future<TaskDisplayData> _loadAndProcessTaskDetails() async {
+    try {
+      // Step 1: Fetch all required data in parallel for performance.
+      final results = await Future.wait([
+        TaskService.getTaskById(widget.taskId),
+        SeasonDetailService.getSeasonDetailMap(),
+        BedService.getBedMap(),
+        PlotService.getPlotMap(),
+        FarmService.getFarmMap(),
+      ], eagerError: true); // Stop immediately if any API call fails.
 
-    final seasonDetailMap = results[0] as Map<String, dynamic>;
-    final bedMap = results[1] as Map<String, Map<String, dynamic>>;
-    final plotMap = results[2] as Map<String, Map<String, dynamic>>;
-    final farmMap = results[3] as Map<String, String>;
+      // Step 2: Safely extract and cast results.
+      final initialTask = results[0] as TaskModel;
+      _seasonDetailMap = results[1] as Map<String, dynamic>;
+      _bedMap = results[2] as Map<String, Map<String, dynamic>>;
+      _plotMap = results[3] as Map<String, Map<String, dynamic>>;
+      _farmMap = results[4] as Map<String, String>;
 
-    final sd = seasonDetailMap[task.seasonId];
-    if (sd != null) {
-      task.cropName = sd['cropName'] ?? 'Không rõ';
-    } else {
-      task.cropName = 'Không rõ';
-    }
+      // Step 3: Process and resolve names from IDs. This logic is now centralized and safer.
+      final sd = _seasonDetailMap[initialTask.seasonId];
+      final cropName = sd?['cropName']?.toString() ?? 'Không rõ';
 
-    final allPlotIds = <String>{};
-    allPlotIds.addAll(task.plotIds);
-    for (final bedId in task.bedIds) {
-      final plotId = bedMap[bedId]?['plotId'] as String?;
-      if (plotId != null) {
-        allPlotIds.add(plotId);
+      // Find the first valid location chain (Bed -> Plot -> Farm)
+      String bedName = 'Không rõ';
+      String plotName = 'Không rõ';
+      String farmName = 'Không rõ';
+
+      for (final bedId in initialTask.bedIds) {
+        final bedData = _bedMap[bedId];
+        if (bedData == null) continue;
+
+        final currentPlotId = bedData['plotId']?.toString();
+        final plotData = _plotMap[currentPlotId];
+        if (plotData == null) continue;
+
+        final currentFarmId = plotData['farmId']?.toString();
+        final currentFarmName = _farmMap[currentFarmId];
+        if (currentFarmName == null) continue;
+
+        // Found a complete, valid location chain.
+        bedName = bedData['bedName']?.toString() ?? 'Không rõ';
+        plotName = plotData['plotName']?.toString() ?? 'Không rõ';
+        farmName = currentFarmName;
+        break; // Stop at the first valid location.
       }
+
+      // Step 4: Return a clean, ready-to-use data object.
+      return TaskDisplayData(
+        task: initialTask,
+        cropName: cropName,
+        farmName: farmName,
+        plotName: plotName,
+        bedName: bedName,
+      );
+    } on ApiException {
+      rethrow; // Re-throw API exceptions to be handled by FutureBuilder.
+    } catch (e, stacktrace) {
+      // Catch other errors (casting, null pointers) and provide a clear message.
+      debugPrint('[TaskDetailScreen] Lỗi xử lý dữ liệu: $e');
+      debugPrint(stacktrace.toString());
+      throw ApiException(
+          'Lỗi xử lý dữ liệu công việc. Vui lòng kiểm tra dữ liệu từ API.');
     }
-
-    final bedNames = task.bedIds
-        .map((id) => bedMap[id]?['bedName'] as String?)
-        .whereType<String>()
-        .toList();
-    task.bed = bedNames.join(', ');
-
-    final plotNames = allPlotIds
-        .map((id) => plotMap[id]?['plotName'] as String?)
-        .whereType<String>()
-        .toList();
-    task.area = plotNames.join(', ');
-
-    final farmIds = allPlotIds
-        .map((plotId) => plotMap[plotId]?['farmId'] as String?)
-        .whereType<String>();
-
-    final farmNames = farmIds
-        .map((farmId) => farmMap[farmId])
-        .whereType<String>()
-        .toSet()
-        .toList();
-
-    task.field = farmNames.join(', ');
-
-    return task;
   }
 
   @override
@@ -115,8 +148,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           foregroundColor: Colors.black,
           elevation: 0.5,
         ),
-        body: FutureBuilder<TaskModel>(
-          future: _taskFuture,
+        body: FutureBuilder<TaskDisplayData>(
+          future: _taskDisplayFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -129,16 +162,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             }
 
             // Use a state variable to allow for mutations.
-            if (_task == null || _task!.id != snapshot.data!.id) {
-              _task = snapshot.data!;
+            if (_task == null || _task!.id != snapshot.data!.task.id) {
+              _task = snapshot.data!.task;
             }
-            final task = _task!;
+            final displayData = snapshot.data!;
 
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  _buildTaskHeader(task),
+                  _buildTaskHeader(displayData),
                   const SizedBox(height: 16),
                   _buildUpdateSection(),
                   const SizedBox(height: 16),
@@ -152,7 +185,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  Widget _buildTaskHeader(TaskModel task) {
+  Widget _buildTaskHeader(TaskDisplayData displayData) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: _cardDecoration(),
@@ -162,14 +195,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: _buildTags(task)),
+              Expanded(child: _buildTags(displayData.task)),
               const SizedBox(width: 12),
-              _buildImage(task),
+              _buildImage(displayData.task),
             ],
           ),
           const SizedBox(height: 12),
           Text(
-            task.title,
+            displayData.task.title,
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -177,39 +210,41 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
           const SizedBox(height: 4),
           // Hiển thị mô tả công việc
-          if (task.description.isNotEmpty)
+          if (displayData.task.description.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 8.0, top: 4.0),
               child: Text(
-                task.description,
+                displayData.task.description,
                 style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
               ),
             ),
           Text(
-            '${task.cropName} – ${task.season}',
+            '${displayData.cropName} – ${displayData.task.season}',
             style: const TextStyle(color: Colors.grey),
           ),
           const Divider(height: 24),
           _infoRow(
             icon: Icons.location_on,
             title: 'Địa điểm',
-            value: task.fullLocation,
+            value:
+                '${displayData.farmName} - ${displayData.plotName} - ${displayData.bedName}',
           ),
           _infoRow(
             icon: Icons.access_time,
             title: 'Thời gian dự kiến',
-            value: _formatTaskDuration(task),
+            value: _formatTaskDuration(displayData.task),
           ),
           _infoRow(
             icon: Icons.person,
             title: 'Người giao việc',
-            value: '${task.assignedBy} – ${task.assignedRole}',
+            value:
+                '${displayData.task.assignedBy} – ${displayData.task.assignedRole}',
           ),
           _infoRow(
             icon: Icons.info,
             title: 'Trạng thái',
-            value: _statusLabel(task.status),
-            valueColor: _statusColor(task.status),
+            value: _statusLabel(displayData.task.status),
+            valueColor: _statusColor(displayData.task.status),
           ),
         ],
       ),
@@ -590,11 +625,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
     try {
       final result = await AIService.analyzePlantImage(File(pickedFile.path));
-      Navigator.of(context).pop(); 
+      Navigator.of(context).pop();
 
       final bool isHealthy = result['isHealthy'] ?? false;
 
       if (!mounted) return;
+
+      debugPrint('[TaskDetailScreen] _task!.bedIds: ${_task!.bedIds}');
+      debugPrint('[TaskDetailScreen] _bedMap: $_bedMap');
+      debugPrint('[TaskDetailScreen] _plotMap: $_plotMap');
 
       if (isHealthy) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -604,10 +643,65 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
         );
       } else {
+        if (_task == null || _task!.bedIds.isEmpty) {
+          debugPrint(
+              '[TaskDetailScreen] Task is null or bedIds is empty. Cannot determine location.');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Không thể xác định vị trí của công việc.')),
+          );
+          return;
+        }
+
+        // Find the first valid location chain (Bed -> Plot -> Farm)
+        String? validBedId;
+        String? validPlotId;
+        String? validFarmId;
+
+        for (final bedId in _task!.bedIds) {
+          final plotId = _bedMap[bedId]?['plotId']?.toString();
+          debugPrint(
+              '[TaskDetailScreen] Checking bedId: $bedId, found plotId: $plotId');
+          if (plotId != null) {
+            final farmId = _plotMap[plotId]?['farmId']?.toString();
+            debugPrint(
+                '[TaskDetailScreen] Checking plotId: $plotId, found farmId: $farmId');
+            if (farmId != null) {
+              // Final check to ensure the farm exists in the farm map
+              if (!_farmMap.containsKey(farmId)) {
+                debugPrint(
+                    '[TaskDetailScreen] Data inconsistency: farmId $farmId found in plotMap but not in farmMap.');
+                continue; // This location is invalid, try the next one.
+              }
+
+              // This is a fully valid location chain.
+              debugPrint(
+                  '[TaskDetailScreen] Found valid location chain: Farm($farmId) -> Plot($plotId) -> Bed($bedId)');
+              validBedId = bedId;
+              validPlotId = plotId;
+              validFarmId = farmId;
+              break; // Found a valid location, stop searching.
+            }
+          }
+        }
+
+        // If a fully valid location chain could not be found,
+        // we will proceed anyway but without a pre-selected location.
+        // The ReportDetailScreen will handle this by defaulting to the first available option.
+        if (validFarmId == null || validPlotId == null || validBedId == null) {
+          debugPrint(
+              '[TaskDetailScreen] No valid location chain found. Navigating without pre-selected location.');
+        }
+
         Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => ScanResultScreen(
             imagePath: pickedFile.path,
             analysisResult: result,
+            // Pass the found IDs, or an empty string if not found, to satisfy the required parameter.
+            // The ReportDetailScreen is designed to handle this by defaulting to the first item in dropdowns.
+            farmId: validFarmId ?? '',
+            plotId: validPlotId ?? '',
+            bedId: validBedId ?? '',
           ),
         ));
       }

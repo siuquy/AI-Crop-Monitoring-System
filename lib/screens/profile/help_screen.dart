@@ -64,6 +64,7 @@ class HelpScreen extends StatelessWidget {
             content:
                 'Nếu gặp sự cố (sâu bệnh, hư hỏng thiết bị…), hãy cập nhật ghi chú hoặc liên hệ quản lý.',
             isWarning: true,
+            isLast: true,
           ),
           const SizedBox(height: 24),
           _supportSection(),
@@ -74,32 +75,51 @@ class HelpScreen extends StatelessWidget {
 
   Widget _headerCard() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [darkGreen, primaryTeal],
+        gradient: LinearGradient(
+          colors: [darkGreen, Colors.green.shade600],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: darkGreen.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            'Quy trình làm việc',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Quy trình làm việc',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Thực hiện theo 7 bước dưới đây để quản lý công việc hiệu quả trên trang trại.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+              ],
             ),
           ),
-          SizedBox(height: 6),
-          Text(
-            'Thực hiện theo 7 bước dưới đây để quản lý công việc hiệu quả trên trang trại.',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-            ),
-          ),
+          const SizedBox(width: 16),
+          Icon(Icons.playlist_add_check_rounded,
+              color: Colors.white.withOpacity(0.8), size: 50),
         ],
       ),
     );
@@ -110,76 +130,73 @@ class HelpScreen extends StatelessWidget {
     required String title,
     required String content,
     bool isWarning = false,
+    bool isLast = false,
   }) {
+    final Color color = isWarning ? Colors.red.shade700 : primaryTeal;
+
     return IntrinsicHeight(
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Column(
             children: [
               CircleAvatar(
-                radius: 14,
-                backgroundColor: isWarning ? Colors.red : primaryTeal,
+                radius: 16,
+                backgroundColor: color,
                 child: Text(
                   number.toString(),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 12,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-              Container(
-                width: 2,
-                height: 80,
-                color: Colors.grey.shade300,
-              ),
+              if (!isLast)
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    color: Colors.grey.shade300,
+                  ),
+                )
             ],
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
             child: Container(
-              margin: const EdgeInsets.only(bottom: 20),
-              padding: const EdgeInsets.all(14),
+              margin: EdgeInsets.only(bottom: isLast ? 0 : 24),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isWarning ? const Color(0xFFFFEBEE) : Colors.white,
-                borderRadius: BorderRadius.circular(14),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border(
+                  left: BorderSide(color: color, width: 5),
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 6,
-                    offset: const Offset(0, 3),
+                    color: Colors.black.withOpacity(0.07),
+                    blurRadius: 10,
+                    offset: const Offset(2, 4),
                   )
                 ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Icon(
-                        isWarning
-                            ? Icons.warning_amber_rounded
-                            : Icons.check_circle_outline,
-                        color: isWarning ? Colors.red : primaryTeal,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: color,
+                    ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Text(
                     content,
                     style: const TextStyle(
-                      fontSize: 13,
-                      height: 1.4,
+                      fontSize: 14,
+                      height: 1.5,
                       color: Colors.black87,
                     ),
                   ),
@@ -193,27 +210,61 @@ class HelpScreen extends StatelessWidget {
   }
 
   Widget _supportSection() {
-    return Column(
-      children: [
-        const Text(
-          'Bạn vẫn cần trợ giúp?',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      margin: const EdgeInsets.only(top: 16),
+      decoration: BoxDecoration(
+        color: lightGreenBg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.support_agent_rounded,
+            size: 40,
+            color: darkGreen,
           ),
-        ),
-        const SizedBox(height: 10),
-        ElevatedButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.support_agent),
-          label: const Text('Liên hệ hỗ trợ'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: primaryTeal,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+          const SizedBox(height: 12),
+          const Text(
+            'Bạn vẫn cần trợ giúp?',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: darkGreen,
             ),
           ),
-        )
-      ],
+          const SizedBox(height: 8),
+          const Text(
+            'Đừng ngần ngại liên hệ với đội ngũ hỗ trợ của chúng tôi.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.black54,
+            ),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: () {
+              // TODO: Implement contact support action
+            },
+            icon: const Icon(Icons.call, color: Colors.white),
+            label: const Text(
+              'Liên hệ hỗ trợ',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryTeal,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+              elevation: 5,
+              shadowColor: primaryTeal.withOpacity(0.5),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
