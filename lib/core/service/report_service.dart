@@ -9,15 +9,15 @@ class ReportService {
       // Gọi endpoint /api/Reports.
       // Lưu ý: ApiClient được cấu hình cho một URL cơ sở cụ thể (ví dụ: http://...:5298).
       // Hãy đảm bảo URL này khớp với URL backend từ lệnh curl của bạn (https://localhost:7093).
-      final response = await apiClient.get('/api/Reports');
+      final response = await apiClient.get('/api/reports');
 
-      if (response != null &&
-          response['success'] == true &&
-          response['data'] is List) {
+      // API có thể trả về dữ liệu được gói trong cấu trúc { success: bool, data: [...] }
+      if (response is Map<String, dynamic> && response['data'] is List) {
         final List<dynamic> reportData = response['data'];
         return reportData.map((json) => Report.fromJson(json)).toList();
       } else {
-        throw ApiException(response?['message'] ?? 'Không tải được báo cáo.');
+        throw ApiException(
+            'Định dạng dữ liệu báo cáo không hợp lệ.'); // Lỗi này xảy ra khi API không trả về một Map có chứa list 'data'.
       }
     } on ApiException {
       rethrow; // Ném lại các exception từ API để UI xử lý.
@@ -40,7 +40,7 @@ class ReportService {
       // Backend endpoint for creating a report, assuming it's a multipart request
       // The 'fileField' should match what the backend API expects for the image file.
       final response = await apiClient.postMultipart(
-        '/api/Reports',
+        '/api/reports',
         fields: {
           'title': title,
           'description': description,
@@ -53,14 +53,9 @@ class ReportService {
             'imageFile', // Common name for file field, confirm with backend
       );
 
-      if (response != null &&
-          response['success'] == true &&
-          response['data'] != null) {
-        // Assuming the API returns the newly created report object in the 'data' field.
-        return Report.fromJson(response['data']);
-      } else {
-        throw ApiException(response?['message'] ?? 'Không tạo được báo cáo.');
-      }
+      // ApiClient đã xử lý và trả về 'data', nên ta có thể dùng trực tiếp.
+      // Giả định rằng API trả về đối tượng báo cáo vừa được tạo.
+      return Report.fromJson(response);
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -77,7 +72,7 @@ class ReportService {
       final apiClient = ApiClient.instance;
       // Assuming a PUT request to /api/Reports/{id}
       final response = await apiClient.putMultipart(
-        '/api/Reports/$reportId',
+        '/api/reports/$reportId',
         fields: {
           'description': description,
         },
@@ -85,14 +80,8 @@ class ReportService {
         fileField: 'imageFile',
       );
 
-      if (response != null &&
-          response['success'] == true &&
-          response['data'] != null) {
-        return Report.fromJson(response['data']);
-      } else {
-        throw ApiException(
-            response?['message'] ?? 'Không cập nhật được báo cáo.');
-      }
+      // Tương tự như createReport, ApiClient đã trả về phần 'data'.
+      return Report.fromJson(response);
     } on ApiException {
       rethrow;
     } catch (e) {

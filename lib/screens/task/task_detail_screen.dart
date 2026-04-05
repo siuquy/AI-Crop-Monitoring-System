@@ -596,6 +596,31 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     });
   }
 
+  /// Finds the first valid location chain (Farm -> Plot -> Bed) from the task's bed IDs.
+  /// This centralizes the complex location-finding logic.
+  ({String? farmId, String? plotId, String? bedId}) _findValidLocationChain() {
+    if (_task == null || _task!.bedIds.isEmpty) {
+      return (farmId: null, plotId: null, bedId: null);
+    }
+
+    for (final bedId in _task!.bedIds) {
+      final plotId = _bedMap[bedId]?['plotId']?.toString();
+      if (plotId != null) {
+        final farmId = _plotMap[plotId]?['farmId']?.toString();
+        if (farmId != null) {
+          // Final check to ensure the farm exists in the farm map
+          if (_farmMap.containsKey(farmId)) {
+            // This is a fully valid location chain.
+            return (farmId: farmId, plotId: plotId, bedId: bedId);
+          }
+        }
+      }
+    }
+
+    // No valid chain found
+    return (farmId: null, plotId: null, bedId: null);
+  }
+
   Future<void> _scanWithAI() async {
     final XFile? pickedFile =
         await _picker.pickImage(source: ImageSource.camera);
@@ -631,10 +656,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
       if (!mounted) return;
 
-      debugPrint('[TaskDetailScreen] _task!.bedIds: ${_task!.bedIds}');
-      debugPrint('[TaskDetailScreen] _bedMap: $_bedMap');
-      debugPrint('[TaskDetailScreen] _plotMap: $_plotMap');
-
       if (isHealthy) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -643,53 +664,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
         );
       } else {
-        if (_task == null || _task!.bedIds.isEmpty) {
-          debugPrint(
-              '[TaskDetailScreen] Task is null or bedIds is empty. Cannot determine location.');
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Không thể xác định vị trí của công việc.')),
-          );
-          return;
-        }
+        final location = _findValidLocationChain();
+        final validFarmId = location.farmId;
+        final validPlotId = location.plotId;
+        final validBedId = location.bedId;
 
-        // Find the first valid location chain (Bed -> Plot -> Farm)
-        String? validBedId;
-        String? validPlotId;
-        String? validFarmId;
-
-        for (final bedId in _task!.bedIds) {
-          final plotId = _bedMap[bedId]?['plotId']?.toString();
-          debugPrint(
-              '[TaskDetailScreen] Checking bedId: $bedId, found plotId: $plotId');
-          if (plotId != null) {
-            final farmId = _plotMap[plotId]?['farmId']?.toString();
-            debugPrint(
-                '[TaskDetailScreen] Checking plotId: $plotId, found farmId: $farmId');
-            if (farmId != null) {
-              // Final check to ensure the farm exists in the farm map
-              if (!_farmMap.containsKey(farmId)) {
-                debugPrint(
-                    '[TaskDetailScreen] Data inconsistency: farmId $farmId found in plotMap but not in farmMap.');
-                continue; // This location is invalid, try the next one.
-              }
-
-              // This is a fully valid location chain.
-              debugPrint(
-                  '[TaskDetailScreen] Found valid location chain: Farm($farmId) -> Plot($plotId) -> Bed($bedId)');
-              validBedId = bedId;
-              validPlotId = plotId;
-              validFarmId = farmId;
-              break; // Found a valid location, stop searching.
-            }
-          }
-        }
-
-        // If a fully valid location chain could not be found,
-        // we will proceed anyway but without a pre-selected location.
-        // The ReportDetailScreen will handle this by defaulting to the first available option.
         if (validFarmId == null || validPlotId == null || validBedId == null) {
-          debugPrint('[TaskDetailScreen] No valid location chain found.');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
@@ -697,16 +677,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               backgroundColor: Colors.red,
             ),
           );
-          return; // Abort the process
+          return;
         }
 
         Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => ScanResultScreen(
             imagePath: pickedFile.path,
             analysisResult: result,
-            farmId: validFarmId!,
-            plotId: validPlotId!,
-            bedId: validBedId!,
+            farmId: validFarmId,
+            plotId: validPlotId,
+            bedId: validBedId,
           ),
         ));
       }
