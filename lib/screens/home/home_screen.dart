@@ -9,6 +9,7 @@ import '../../core/service/crop_service.dart';
 import '../../core/service/plot_service.dart';
 import '../../core/service/task_service.dart';
 import '../../core/service/worker_service.dart';
+import '../../core/service/weather_service.dart';
 import '../../models/task_model.dart';
 import '../../models/worker.dart';
 
@@ -379,11 +380,72 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _WeatherCard extends StatelessWidget {
+class _WeatherCard extends StatefulWidget {
   const _WeatherCard();
 
   @override
+  State<_WeatherCard> createState() => _WeatherCardState();
+}
+
+class _WeatherCardState extends State<_WeatherCard> {
+  Map<String, dynamic>? _weatherData;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchWeather();
+  }
+
+  Future<void> _fetchWeather() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final data = await WeatherService.fetchWeather();
+      setState(() {
+        _weatherData = data;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return _buildLoadingOrErrorCard(
+          const CircularProgressIndicator(color: Colors.white));
+    }
+
+    if (_error != null) {
+      return _buildLoadingOrErrorCard(
+          Text(_error!, style: const TextStyle(color: Colors.white)));
+    }
+
+    if (_weatherData == null) {
+      return _buildLoadingOrErrorCard(const Text('Không có dữ liệu thời tiết',
+          style: TextStyle(color: Colors.white)));
+    }
+
+    final temperature = _weatherData!['temperature']?.round() ?? 'N/A';
+    final description = _weatherData!['description'] ?? 'Không rõ';
+    final humidity = _weatherData!['humidity'] ?? 'N/A';
+    final windSpeed = _weatherData!['windSpeed'] ?? 'N/A';
+    final iconCode = _weatherData!['icon'] ?? '01d'; // Default icon
+    final cityName = _weatherData!['cityName'] ?? 'Vị trí của bạn';
+
+    // OpenWeatherMap icon URL
+    final iconUrl = 'https://openweathermap.org/img/wn/$iconCode@2x.png';
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -391,25 +453,52 @@ class _WeatherCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
-        children: const [
-          Icon(Icons.wb_sunny, color: Colors.white, size: 32),
-          SizedBox(width: 12),
+        children: [
+          Image.network(iconUrl, width: 50, height: 50),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              '28°C - Nắng nhẹ\nThời tiết thuận lợi',
-              style: TextStyle(color: Colors.white),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$temperature°C - ${description[0].toUpperCase()}${description.substring(1)}',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  cityName,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
             ),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               _WeatherInfo(
-                  icon: Icons.water_drop, label: 'Độ ẩm', value: '65%'),
-              SizedBox(height: 4),
-              _WeatherInfo(icon: Icons.air, label: 'Gió', value: '5 km/h'),
+                  icon: Icons.water_drop, label: 'Độ ẩm', value: '$humidity%'),
+              const SizedBox(height: 4),
+              _WeatherInfo(
+                  icon: Icons.air, label: 'Gió', value: '$windSpeed m/s'),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingOrErrorCard(Widget content) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [primaryTeal, darkTeal]),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: SizedBox(
+        height: 70, // Chiều cao cố định để tránh nhảy layout
+        child: Center(child: content),
       ),
     );
   }

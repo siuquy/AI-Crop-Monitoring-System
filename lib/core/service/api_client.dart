@@ -32,7 +32,7 @@ class ApiClient {
       return 'https://localhost:7093';
     }
     if (Platform.isAndroid) {
-      return 'https://10.0.2.2:7093';
+      return 'http://192.168.1.189:5298';
     }
     return 'https://localhost:7093';
   }

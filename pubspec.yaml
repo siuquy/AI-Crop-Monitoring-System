@@ -35,8 +35,8 @@ dependencies:
   flutter_local_notifications: ^17.2.4
   timeago: ^3.6.1
   saver_gallery: ^4.1.1
+  geolocator: ^12.0.0 # Sử dụng phiên bản mới nhất của geolocator
   permission_handler: ^11.3.1
-
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

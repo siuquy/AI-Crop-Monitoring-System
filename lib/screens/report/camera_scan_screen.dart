@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../task/ai_service.dart';
-import 'create_report_screen.dart';
+import 'scan_result_screen.dart';
 
 /// Một màn hình tạm thời để xử lý luồng quét bằng camera.
 /// Nó sẽ tự động mở camera, xử lý phân tích AI và điều hướng đến màn hình kết quả.
@@ -64,7 +64,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
       // Thay thế màn hình hiện tại bằng màn hình kết quả.
       // Điều này ngăn người dùng quay lại màn hình quét.
       Navigator.of(context).pushReplacement(MaterialPageRoute(
-        builder: (_) => CreateReportScreen(
+        builder: (_) => ScanResultScreen(
           imagePath: pickedFile.path,
           analysisResult: result,
           farmId: widget.farmId,

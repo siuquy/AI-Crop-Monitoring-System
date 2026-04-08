@@ -168,6 +168,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
             floating: false,
             backgroundColor: Colors.white,
             elevation: 0,
+            automaticallyImplyLeading: false, // Ẩn mũi tên quay lại
             title: const Text(
               'Danh sách nhiệm vụ',
               style: TextStyle(color: Colors.black),

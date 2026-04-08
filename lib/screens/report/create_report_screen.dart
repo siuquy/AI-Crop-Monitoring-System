@@ -6,6 +6,23 @@ import '../../core/service/farm_service.dart';
 import '../../core/service/plot_service.dart';
 import '../../core/service/bed_service.dart';
 
+enum ReportSeverity { low, medium, high }
+
+extension ReportSeverityExtension on ReportSeverity {
+  String get displayName {
+    switch (this) {
+      case ReportSeverity.low:
+        return 'Thấp';
+      case ReportSeverity.medium:
+        return 'Trung bình';
+      case ReportSeverity.high:
+        return 'Cao';
+      default:
+        return '';
+    }
+  }
+}
+
 class CreateReportScreen extends StatefulWidget {
   final String imagePath;
   final Map<String, dynamic> analysisResult;
@@ -31,6 +48,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   bool _isSubmitting = false;
+  ReportSeverity _severity = ReportSeverity.medium;
   late Future<Map<String, String>> _locationNamesFuture;
 
   @override
@@ -78,11 +96,15 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     });
 
     try {
-      // Chỉ gửi title và description — API hiện tại chỉ hỗ trợ JSON,
-      // không nhận farmId, plotId, bedId, hay file ảnh.
+      // API hiện tại chưa hỗ trợ trường "mức độ nghiêm trọng" riêng.
+      // Giải pháp tạm thời: Ghép mức độ vào phần mô tả.
+      final fullDescription =
+          'Mức độ nghiêm trọng: ${_severity.displayName}\n\n${_descriptionController.text}';
+
+      // Gọi hàm createReport với các tham số được API hỗ trợ
       await ReportService.createReport(
         title: _titleController.text,
-        description: _descriptionController.text,
+        description: fullDescription,
       );
 
       if (!mounted) return;
@@ -94,8 +116,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         ),
       );
 
-      // Điều hướng về màn hình chính sau khi tạo thành công
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      // Sửa lỗi điều hướng: Quay lại màn hình trước đó (ví dụ: Chi tiết công việc)
+      // bằng cách đóng 2 màn hình (CreateReportScreen và ScanResultScreen).
+      int popCount = 0;
+      Navigator.of(context).popUntil((_) => ++popCount > 2);
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -135,52 +159,100 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildLocationInfo(),
-              const SizedBox(height: 16),
-              const Text(
-                'Vui lòng xem lại và chỉnh sửa thông tin trước khi gửi báo cáo.',
-                style: TextStyle(color: Colors.grey),
-              ),
               const SizedBox(height: 24),
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Tiêu đề báo cáo',
-                  border: OutlineInputBorder(),
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Thông tin báo cáo',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 24),
+                      TextFormField(
+                        controller: _titleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Tiêu đề báo cáo (AI gợi ý)',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Vui lòng nhập tiêu đề';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _descriptionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Mô tả chi tiết (AI gợi ý)',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 5,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Vui lòng nhập mô tả';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<ReportSeverity>(
+                        value: _severity,
+                        decoration: const InputDecoration(
+                          labelText: 'Mức độ nghiêm trọng',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: ReportSeverity.values
+                            .map((ReportSeverity severity) {
+                          return DropdownMenuItem<ReportSeverity>(
+                            value: severity,
+                            child: Text(severity.displayName),
+                          );
+                        }).toList(),
+                        onChanged: (ReportSeverity? newValue) {
+                          if (newValue != null) {
+                            setState(() {
+                              _severity = newValue;
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Vui lòng nhập tiêu đề';
-                  }
-                  return null;
-                },
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Mô tả chi tiết',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 5,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Vui lòng nhập mô tả';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-              const Text('Ảnh đính kèm:',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Center(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.file(
-                    File(widget.imagePath),
-                    height: 200,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Ảnh đính kèm',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.file(
+                            File(widget.imagePath),
+                            height: 200,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

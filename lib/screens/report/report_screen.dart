@@ -91,7 +91,7 @@ class _ReportScreenState extends State<ReportScreen>
           padding: EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'Danh sách Báo cáo AI',
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.black,
               fontWeight: FontWeight.w600,
             ),

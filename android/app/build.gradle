@@ -12,8 +12,8 @@ if (keyPropertiesFile.exists()) {
 
 android {
     namespace = "com.example.acmms"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    compileSdk = 34
+    ndkVersion "27.0.12077973"
 
     compileOptions {
         coreLibraryDesugaringEnabled true
@@ -38,15 +38,14 @@ android {
 
     defaultConfig {
         applicationId = "com.example.acmms"
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 23
+        targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     buildTypes {
         release {
-            // You'll need to create a signing key and add the credentials to `key.properties`
             signingConfig signingConfigs.release
         }
     }
@@ -57,5 +56,5 @@ flutter {
 }
 
 dependencies {
-    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'  
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
 }
