@@ -5,7 +5,6 @@ import '../../core/service/api_client.dart';
 import '../../core/service/farm_service.dart';
 import '../../core/service/plot_service.dart';
 import '../../core/service/bed_service.dart';
-import 'report_detail_screen.dart';
 
 class CreateReportScreen extends StatefulWidget {
   final String imagePath;
@@ -80,7 +79,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     });
 
     try {
-      final newReport = await ReportService.createReport(
+      await ReportService.createReport(
         title: _titleController.text,
         description: _descriptionController.text,
         image: File(widget.imagePath),
@@ -98,13 +97,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         ),
       );
 
-      // Điều hướng đến màn hình chi tiết và xóa các màn hình trước đó khỏi stack
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (context) => ReportDetailScreen(report: newReport),
-        ),
-        (Route<dynamic> route) => route.isFirst,
-      );
+      // Điều hướng về màn hình chính (hoặc màn hình gốc) sau khi tạo thành công.
+      // Xóa tất cả các màn hình trên nó (Scan, CreateReport)
+      Navigator.of(context).popUntil((route) => route.isFirst);
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -239,8 +234,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 child: Text(
                   'Vị trí: ${names['farmName']} - ${names['plotName']} - ${names['bedName']}',
                   style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                      color: Colors.blue.shade800),
+                      fontWeight: FontWeight.w500, color: Colors.blue.shade800),
                 ),
               ),
             ],

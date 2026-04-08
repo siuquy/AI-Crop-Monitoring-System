@@ -4,6 +4,10 @@ import 'create_report_screen.dart'; // Trang mới để tạo báo cáo
 import '../../core/service/farm_service.dart';
 import '../../core/service/plot_service.dart';
 import '../../core/service/bed_service.dart';
+import '../../core/service/report_service.dart';
+import '../../core/service/api_client.dart';
+import 'package:saver_gallery/saver_gallery.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 const Color primaryTeal = Color(0xFF1FCFC5);
 
@@ -30,6 +34,7 @@ class ScanResultScreen extends StatefulWidget {
 
 class _ScanResultScreenState extends State<ScanResultScreen> {
   late Future<Map<String, String>> _locationNamesFuture;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -56,6 +61,110 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
     };
   }
 
+  Future<void> _saveHealthyReport() async {
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      await ReportService.createReport(
+        title: 'Kiểm tra định kỳ - Tình trạng tốt',
+        description:
+            'Cây trồng được ghi nhận là khỏe mạnh, không có dấu hiệu sâu bệnh tại thời điểm kiểm tra.',
+        image: File(widget.imagePath),
+        farmId: widget.farmId,
+        plotId: widget.plotId,
+        bedId: widget.bedId,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã lưu báo cáo tình trạng tốt thành công!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Navigate back to home
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi: ${e.message}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đã xảy ra lỗi không mong muốn: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  Future<void> _saveImageToGallery() async {
+    Future<void> performSave() async {
+      final result = await SaverGallery.saveFile(
+          filePath: widget.imagePath,
+          fileName: 'plant_image_${DateTime.now().millisecondsSinceEpoch}.jpg',
+          skipIfExists: false);
+      if (!mounted) return;
+
+      if (result?.isSuccess == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã lưu ảnh vào thư viện thành công!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        throw Exception('Không thể lưu ảnh.');
+      }
+    }
+
+    try {
+      if (Platform.isAndroid) {
+        // Trên Android, saver_gallery sử dụng MediaStore và không cần quyền runtime
+        // để lưu ảnh vào thư viện. Chúng ta có thể lưu trực tiếp.
+        await performSave();
+      } else {
+        // Trên iOS, chúng ta cần yêu cầu quyền truy cập thư viện ảnh.
+        var status = await Permission.photos.request();
+
+        if (status.isGranted) {
+          await performSave();
+        } else if (status.isPermanentlyDenied) {
+          // Xử lý trường hợp người dùng từ chối vĩnh viễn
+          if (!mounted) return;
+          // Mở cài đặt ứng dụng để người dùng có thể cấp quyền thủ công
+          openAppSettings();
+        } else {
+          // Xử lý trường hợp người dùng từ chối
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Quyền truy cập thư viện ảnh đã bị từ chối.'),
+            backgroundColor: Colors.orange,
+          ));
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Lỗi khi lưu ảnh: $e'),
+        backgroundColor: Colors.red,
+      ));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final String diseaseName =
@@ -67,6 +176,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         List<String>.from(widget.analysisResult['symptoms'] ?? []);
     final List<String> treatment =
         List<String>.from(widget.analysisResult['treatment'] ?? []);
+    final bool isHealthy = widget.analysisResult['isHealthy'] ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -74,6 +184,13 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0.5,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download_for_offline_outlined),
+            onPressed: _saveImageToGallery,
+            tooltip: 'Lưu ảnh vào thư viện',
+          ),
+        ],
       ),
       backgroundColor: const Color(0xFFF6F8F7),
       body: SingleChildScrollView(
@@ -97,30 +214,56 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
       ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: ElevatedButton.icon(
-          onPressed: () {
-            Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => CreateReportScreen(
-                imagePath: widget.imagePath,
-                analysisResult: widget.analysisResult,
-                farmId: widget.farmId,
-                plotId: widget.plotId,
-                bedId: widget.bedId,
+        child: _isSaving
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isHealthy) ...[
+                    ElevatedButton.icon(
+                      onPressed: _saveHealthyReport,
+                      icon: const Icon(Icons.save_alt_outlined),
+                      label: const Text('Lưu báo cáo (Tình trạng tốt)'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        minimumSize: const Size.fromHeight(50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        textStyle: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => CreateReportScreen(
+                          imagePath: widget.imagePath,
+                          analysisResult: widget.analysisResult,
+                          farmId: widget.farmId,
+                          plotId: widget.plotId,
+                          bedId: widget.bedId,
+                        ),
+                      ));
+                    },
+                    icon: const Icon(Icons.description_outlined),
+                    label: Text(isHealthy
+                        ? 'Tạo báo cáo tùy chỉnh'
+                        : 'Tiếp tục tạo báo cáo'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryTeal,
+                      minimumSize: const Size.fromHeight(50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      textStyle: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
               ),
-            ));
-          },
-          icon: const Icon(Icons.description_outlined),
-          label: const Text('Tiếp tục tạo báo cáo'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: primaryTeal,
-            minimumSize: const Size.fromHeight(50),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            textStyle:
-                const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-        ),
       ),
     );
   }

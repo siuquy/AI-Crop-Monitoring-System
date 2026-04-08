@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../core/service/worker_service.dart';
 import '../../models/worker.dart';
 import 'profile_screen.dart';
-import 'change_password_screen.dart';
 import 'help_screen.dart';
 import 'about_app_screen.dart';
 import 'report_problem_screen.dart';
@@ -50,11 +49,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: 'Hồ sơ cá nhân',
             onTap: () => _go(context, const ProfileScreen()),
           ),
-          _settingItem(
-            icon: Icons.lock,
-            title: 'Đổi mật khẩu',
-            onTap: () => _go(context, const ChangePasswordScreen()),
-          ),
+          // _settingItem(
+          //   icon: Icons.lock,
+          //   title: 'Đổi mật khẩu',
+          //   onTap: () => _go(context, const ChangePasswordScreen()),
+          // ),
           const SizedBox(height: 24),
           _sectionTitle('CHUNG'),
           _settingItem(

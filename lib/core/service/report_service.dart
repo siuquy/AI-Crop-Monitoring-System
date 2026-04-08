@@ -1,6 +1,7 @@
 import 'dart:io';
 import '../../models/report.dart';
 import 'api_client.dart';
+import 'worker_service.dart';
 
 class ReportService {
   static Future<List<Report>> getReports() async {
@@ -27,7 +28,7 @@ class ReportService {
     }
   }
 
-  static Future<Report> createReport({
+  static Future<void> createReport({
     required String title,
     required String description,
     required File image,
@@ -36,26 +37,38 @@ class ReportService {
     required String bedId,
   }) async {
     try {
+      final worker = await WorkerService.getCurrentWorker();
+      final submitDate = DateTime.now().toUtc().toIso8601String();
       final apiClient = ApiClient.instance;
       // Backend endpoint for creating a report, assuming it's a multipart request
       // The 'fileField' should match what the backend API expects for the image file.
       final response = await apiClient.postMultipart(
         '/api/reports',
         fields: {
+          'workerId': worker.id,
           'title': title,
           'description': description,
           'farmId': farmId,
           'plotId': plotId,
           'bedId': bedId,
+          'submitDate': submitDate,
+          'status':
+              'active', // Thêm trạng thái ban đầu cho báo cáo, khớp với ví dụ curl
         },
         file: image,
         fileField:
             'imageFile', // Common name for file field, confirm with backend
       );
 
-      // ApiClient đã xử lý và trả về 'data', nên ta có thể dùng trực tiếp.
-      // Giả định rằng API trả về đối tượng báo cáo vừa được tạo.
-      return Report.fromJson(response);
+      if (response is Map<String, dynamic> && response['success'] == true) {
+        // API call was successful. The API returns a success message, not the created object.
+        return;
+      } else {
+        final message =
+            response is Map<String, dynamic> ? response['message'] : null;
+        throw ApiException(message ??
+            'Không thể tạo báo cáo. Phản hồi từ server không hợp lệ.');
+      }
     } on ApiException {
       rethrow;
     } catch (e) {
