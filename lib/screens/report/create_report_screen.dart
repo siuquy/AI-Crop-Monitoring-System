@@ -51,7 +51,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   }
 
   Future<Map<String, String>> _fetchLocationNames() async {
-    // Tải song song để tăng hiệu suất
     final results = await Future.wait([
       FarmService.getFarmMap(),
       PlotService.getPlotMap(),
@@ -79,13 +78,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     });
 
     try {
+      // Chỉ gửi title và description — API hiện tại chỉ hỗ trợ JSON,
+      // không nhận farmId, plotId, bedId, hay file ảnh.
       await ReportService.createReport(
         title: _titleController.text,
         description: _descriptionController.text,
-        image: File(widget.imagePath),
-        farmId: widget.farmId,
-        plotId: widget.plotId,
-        bedId: widget.bedId,
       );
 
       if (!mounted) return;
@@ -97,8 +94,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         ),
       );
 
-      // Điều hướng về màn hình chính (hoặc màn hình gốc) sau khi tạo thành công.
-      // Xóa tất cả các màn hình trên nó (Scan, CreateReport)
+      // Điều hướng về màn hình chính sau khi tạo thành công
       Navigator.of(context).popUntil((route) => route.isFirst);
     } on ApiException catch (e) {
       if (!mounted) return;

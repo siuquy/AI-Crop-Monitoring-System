@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:acmms/core/service/api_client.dart';
-import 'package:acmms/screens/report/scan_result_screen.dart';
+import 'package:acmms/screens/report/create_report_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:acmms/models/task_model.dart';
@@ -681,7 +681,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         }
 
         Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => ScanResultScreen(
+          builder: (_) => CreateReportScreen(
             imagePath: pickedFile.path,
             analysisResult: result,
             farmId: validFarmId,

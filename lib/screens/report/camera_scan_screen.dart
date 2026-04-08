@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../task/ai_service.dart';
-import 'scan_result_screen.dart';
+import 'create_report_screen.dart';
 
 /// Một màn hình tạm thời để xử lý luồng quét bằng camera.
 /// Nó sẽ tự động mở camera, xử lý phân tích AI và điều hướng đến màn hình kết quả.
@@ -21,13 +21,18 @@ class CameraScanScreen extends StatefulWidget {
   State<CameraScanScreen> createState() => _CameraScanScreenState();
 }
 
+enum _ScanState { openingCamera, analyzing }
+
 class _CameraScanScreenState extends State<CameraScanScreen> {
   final ImagePicker _picker = ImagePicker();
+  _ScanState _state = _ScanState.openingCamera;
 
   @override
   void initState() {
     super.initState();
     // Kích hoạt luồng quét ngay khi màn hình được xây dựng.
+    // Sử dụng addPostFrameCallback để đảm bảo context đã sẵn sàng
+    // và tránh các lỗi liên quan đến việc build widget.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scanWithAI();
     });
@@ -43,37 +48,23 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
       return;
     }
 
-    // Hiển thị hộp thoại đang tải trong khi chờ AI phân tích.
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return const Dialog(
-          child: Padding(
-            padding: EdgeInsets.all(20.0),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(width: 20),
-                Text("Đang phân tích bằng AI..."),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+    // Cập nhật giao diện để hiển thị trạng thái đang phân tích.
+    if (mounted) {
+      setState(() {
+        _state = _ScanState.analyzing;
+      });
+    }
 
     try {
       final result = await AIService.analyzePlantImage(File(pickedFile.path));
-      if (mounted) Navigator.of(context).pop(); // Đóng hộp thoại đang tải
 
+      // Kiểm tra widget còn trong cây giao diện không trước khi điều hướng.
       if (!mounted) return;
 
-      // Điều hướng đến màn hình kết quả với dữ liệu chính xác.
-      // Lỗi của bạn đã được khắc phục ở đây bằng cách truyền một Map `analysisResult`.
+      // Thay thế màn hình hiện tại bằng màn hình kết quả.
+      // Điều này ngăn người dùng quay lại màn hình quét.
       Navigator.of(context).pushReplacement(MaterialPageRoute(
-        builder: (_) => ScanResultScreen(
+        builder: (_) => CreateReportScreen(
           imagePath: pickedFile.path,
           analysisResult: result,
           farmId: widget.farmId,
@@ -82,7 +73,6 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
         ),
       ));
     } catch (e) {
-      if (mounted) Navigator.of(context).pop(); // Đóng hộp thoại đang tải
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Lỗi phân tích: $e')),
@@ -95,16 +85,17 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Màn hình này chủ yếu hiển thị trạng thái đang chờ.
     return Scaffold(
       appBar: AppBar(title: const Text("Quét bằng Camera")),
-      body: const Center(
+      body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 20),
-            Text("Đang mở camera..."),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 20),
+            Text(_state == _ScanState.openingCamera
+                ? "Đang mở camera..."
+                : "Đang phân tích bằng AI..."),
           ],
         ),
       ),
