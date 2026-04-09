@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:acmms/core/service/api_client.dart';
-import 'package:acmms/screens/report/scan_result_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:acmms/models/task_model.dart';
@@ -9,10 +8,7 @@ import 'package:acmms/core/service/season_detail_service.dart';
 import 'package:acmms/core/service/bed_service.dart';
 import 'package:acmms/core/service/plot_service.dart';
 import 'package:acmms/core/service/farm_service.dart';
-import 'ai_service.dart';
 
-/// A data class to hold all the necessary, resolved data for displaying the task detail screen.
-/// This avoids complex data lookups and processing within the build methods.
 class TaskDisplayData {
   final TaskModel task;
   final String cropName;
@@ -281,20 +277,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
           const SizedBox(height: 12),
           _buildImageThumbnails(),
-          const SizedBox(height: 16),
-          const Divider(),
-          const SizedBox(height: 16),
-          // AI Scan Button
-          ElevatedButton.icon(
-            onPressed: _scanWithAI,
-            icon: const Icon(Icons.document_scanner_outlined),
-            label: const Text('Quét bệnh bằng AI'),
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size.fromHeight(48),
-              backgroundColor: const Color(0xFF3A5A40),
-              foregroundColor: Colors.white,
-            ),
-          ),
         ],
       ),
     );
@@ -594,107 +576,5 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       _images.add(File(pickedFile.path));
       _taskWasModified = true;
     });
-  }
-
-  /// Finds the first valid location chain (Farm -> Plot -> Bed) from the task's bed IDs.
-  /// This centralizes the complex location-finding logic.
-  ({String? farmId, String? plotId, String? bedId}) _findValidLocationChain() {
-    if (_task == null || _task!.bedIds.isEmpty) {
-      return (farmId: null, plotId: null, bedId: null);
-    }
-
-    for (final bedId in _task!.bedIds) {
-      final plotId = _bedMap[bedId]?['plotId']?.toString();
-      if (plotId != null) {
-        final farmId = _plotMap[plotId]?['farmId']?.toString();
-        if (farmId != null) {
-          // Final check to ensure the farm exists in the farm map
-          if (_farmMap.containsKey(farmId)) {
-            // This is a fully valid location chain.
-            return (farmId: farmId, plotId: plotId, bedId: bedId);
-          }
-        }
-      }
-    }
-
-    // No valid chain found
-    return (farmId: null, plotId: null, bedId: null);
-  }
-
-  Future<void> _scanWithAI() async {
-    final XFile? pickedFile =
-        await _picker.pickImage(source: ImageSource.camera);
-
-    if (pickedFile == null) return;
-
-    // Show loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return const Dialog(
-          child: Padding(
-            padding: EdgeInsets.all(20.0),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(width: 20),
-                Text("Đang phân tích bằng AI..."),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    try {
-      final result = await AIService.analyzePlantImage(File(pickedFile.path));
-      Navigator.of(context).pop();
-
-      final bool isHealthy = result['isHealthy'] ?? false;
-
-      if (!mounted) return;
-
-      if (isHealthy) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ AI xác nhận: Cây trồng khỏe mạnh.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        final location = _findValidLocationChain();
-        final validFarmId = location.farmId;
-        final validPlotId = location.plotId;
-        final validBedId = location.bedId;
-
-        if (validFarmId == null || validPlotId == null || validBedId == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                  'Không thể xác định vị trí hợp lệ cho công việc này để tạo báo cáo.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
-
-        Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => ScanResultScreen(
-            imagePath: pickedFile.path,
-            analysisResult: result,
-            farmId: validFarmId,
-            plotId: validPlotId,
-            bedId: validBedId,
-          ),
-        ));
-      }
-    } catch (e) {
-      Navigator.of(context).pop(); // Close loading dialog
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi phân tích: $e')),
-      );
-    }
   }
 }

@@ -54,10 +54,72 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   @override
   void initState() {
     super.initState();
-    _titleController =
-        TextEditingController(text: widget.analysisResult['diseaseName']);
+
+    // Lấy tên bệnh linh hoạt (bao gồm cả trường hợp AI dịch sang tiếng Việt)
+    final plantName = widget.analysisResult['name'] ??
+        widget.analysisResult['diseaseName'] ??
+        widget.analysisResult['Tên bệnh'] ??
+        '';
+
+    _titleController = TextEditingController(text: plantName.toString());
+
+    String aiDesc = widget.analysisResult['description']?.toString() ??
+        widget.analysisResult['Description']?.toString() ??
+        '';
+    final symptoms = widget.analysisResult['symptoms'] as List<dynamic>? ?? [];
+    final treatment =
+        widget.analysisResult['treatment'] as List<dynamic>? ?? [];
+
+    StringBuffer descBuffer = StringBuffer();
+    if (aiDesc.trim().isNotEmpty) descBuffer.writeln(aiDesc.trim());
+    if (symptoms.isNotEmpty) {
+      descBuffer.writeln('\n* Triệu chứng:');
+      for (var s in symptoms) descBuffer.writeln('  - $s');
+    }
+    if (treatment.isNotEmpty) {
+      descBuffer.writeln('\n* Cách xử lý:');
+      for (var t in treatment) descBuffer.writeln('  - $t');
+    }
+
+    final knownKeys = [
+      'isHealthy',
+      'confidence',
+      'diseaseName',
+      'name',
+      'commonName',
+      'description',
+      'Description',
+      'symptoms',
+      'treatment'
+    ];
+    widget.analysisResult.forEach((key, value) {
+      if (!knownKeys.contains(key) && value != null) {
+        if (value is List) {
+          if (value.isNotEmpty) {
+            descBuffer.writeln('\n* $key:');
+            for (var item in value) descBuffer.writeln('  - $item');
+          }
+        } else if (value.toString().trim().isNotEmpty) {
+          descBuffer.writeln('\n* $key: $value');
+        }
+      }
+    });
+
+    String finalDescription = descBuffer.toString().trim();
+    if (finalDescription.isEmpty) {
+      bool isHealthy = widget.analysisResult['isHealthy'] == true ||
+          plantName.toString().toLowerCase().contains('khỏe mạnh');
+      if (isHealthy) {
+        finalDescription =
+            'Cây trồng khỏe mạnh, không phát hiện dấu hiệu bất thường.';
+      } else {
+        finalDescription =
+            'Đã phát hiện vấn đề trên cây trồng. Cần kiểm tra và xử lý thêm.';
+      }
+    }
+
     _descriptionController =
-        TextEditingController(text: widget.analysisResult['description']);
+        TextEditingController(text: finalDescription.trim());
     _locationNamesFuture = _fetchLocationNames();
   }
 
@@ -105,6 +167,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       await ReportService.createReport(
         title: _titleController.text,
         description: fullDescription,
+        image: File(widget.imagePath),
+        farmId: widget.farmId,
+        plotId: widget.plotId,
+        bedId: widget.bedId,
       );
 
       if (!mounted) return;

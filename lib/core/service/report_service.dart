@@ -69,9 +69,10 @@ class ReportService {
       final worker = await WorkerService.getCurrentWorker();
       final submitDate = DateTime.now().toUtc().toIso8601String();
       final apiClient = ApiClient.instance;
+      dynamic response;
 
-      // API POST /api/Reports nhận JSON, không phải multipart
-      final response = await apiClient.post(
+      // Trả lại phương thức post bằng JSON thuần để tránh lỗi 415 từ Server
+      response = await apiClient.post(
         '/api/reports',
         body: {
           'workerId': worker.id,
@@ -79,6 +80,9 @@ class ReportService {
           'description': description,
           'status': 'active',
           'submitDate': submitDate,
+          if (farmId != null) 'farmId': farmId,
+          if (plotId != null) 'plotId': plotId,
+          if (bedId != null) 'bedId': bedId,
         },
       );
 

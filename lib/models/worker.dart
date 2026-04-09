@@ -4,6 +4,7 @@ class Worker {
   final String role;
   final String? phoneNumber;
   final String? avatarUrl;
+  final String? email;
 
   Worker({
     required this.id,
@@ -11,6 +12,7 @@ class Worker {
     required this.role,
     this.phoneNumber,
     this.avatarUrl,
+    this.email,
   });
 
   factory Worker.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class Worker {
       role: json['roleName'] ?? 'Nông dân', // Default role
       phoneNumber: json['phoneNumber'],
       avatarUrl: json['avatarUrl'],
+      email: json['email'],
     );
   }
 }

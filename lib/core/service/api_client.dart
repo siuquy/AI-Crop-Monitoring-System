@@ -37,7 +37,7 @@ class ApiClient {
     return 'https://localhost:7093';
   }
 
-  static const Duration _timeout = Duration(seconds: 10);
+  static const Duration _timeout = Duration(seconds: 30);
 
   void setAuthToken(String? token) {
     _authToken = token;

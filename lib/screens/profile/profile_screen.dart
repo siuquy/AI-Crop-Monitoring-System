@@ -46,10 +46,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 CircleAvatar(
                   radius: 48,
                   backgroundColor: Colors.teal.shade100,
-                  backgroundImage: (worker.avatarUrl != null &&
-                          worker.avatarUrl!.isNotEmpty)
-                      ? NetworkImage(worker.avatarUrl!)
-                      : const AssetImage('assets/avatar.png') as ImageProvider,
+                  backgroundImage:
+                      (worker.avatarUrl != null && worker.avatarUrl!.isNotEmpty)
+                          ? NetworkImage(worker.avatarUrl!)
+                          : null,
                   child: (worker.avatarUrl == null || worker.avatarUrl!.isEmpty)
                       ? const Icon(Icons.person, size: 48, color: Colors.teal)
                       : null,
@@ -65,10 +65,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 if (worker.phoneNumber != null &&
                     worker.phoneNumber!.isNotEmpty)
                   _infoRow('Số điện thoại', worker.phoneNumber!),
-                // Các thông tin sau không có trong API Worker, nên đã được loại bỏ.
-                // _infoRow('Tên Nông trại', 'Nông trại ABC'),
-                // _infoRow('Khu làm việc', 'Ruộng A – Khu 2 - Luống 5 '),
-                // _infoRow('Tài khoản cấp bởi', 'Chủ nông trại'),
+                if (worker.email != null && worker.email!.isNotEmpty)
+                  _infoRow('Email', worker.email!),
               ],
             ),
           );

@@ -226,8 +226,11 @@ class _LocationInputScreenState extends State<LocationInputScreen> {
         // Pass the selected location IDs to the camera screen.
         builder: (_) => CameraScanScreen(
           farmId: selectedFarmId!,
+          farmName: selectedFarmName!,
           plotId: selectedPlotId!,
+          plotName: selectedPlotName!,
           bedId: selectedBedId!,
+          bedName: selectedBedName!,
         ),
       ),
     );

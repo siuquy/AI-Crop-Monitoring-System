@@ -1,6 +1,8 @@
 import 'dart:io';
-import 'dart:math';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+// Yêu cầu cài đặt: flutter pub add google_generative_ai
+import 'package:google_generative_ai/google_generative_ai.dart';
 
 class AIService {
   AIService._();
@@ -11,50 +13,65 @@ class AIService {
     }
   }
 
-  // Simulates calling a backend that uses Gemini to analyze a plant image.
+  // Gọi API Gemini thật để phân tích ảnh cây trồng.
   static Future<Map<String, dynamic>> analyzePlantImage(File image) async {
-    // Simulate network latency
-    await Future.delayed(const Duration(seconds: 3));
+    try {
+      const String apiKey = 'AIzaSyBrdl4633QOVweN2-aIk2GUoUfmt0bmDT8';
 
-    // Simulate a random success or failure
-    final random = Random();
-    if (random.nextDouble() < 0.1) {
-      // 10% chance of failure
-      throw Exception('Không thể kết nối đến máy chủ AI. Vui lòng thử lại.');
+      if (apiKey == 'AIzaSyBrdl4633QOVweN2-aIk2GUoUfmt0bmDT8') {
+        _log('LƯU Ý: Vui lòng cấu hình API Key cho Gemini!');
+      }
+
+      final model = GenerativeModel(
+        model:
+            'gemini-2.0-flash', // Đã nâng cấp lên model AI mới nhất của Google
+        apiKey: apiKey,
+        generationConfig: GenerationConfig(
+          responseMimeType: 'application/json',
+        ),
+      );
+
+      final imageBytes = await image.readAsBytes();
+      final prompt = TextPart('''
+Bạn là một chuyên gia nông nghiệp. Phân tích ảnh này và BẮT BUỘC trả về ĐÚNG định dạng JSON sau (key tiếng Anh, value tiếng Việt):
+{
+  "isHealthy": false,
+  "diseaseName": "Tên bệnh bằng tiếng Việt hoặc 'Khỏe mạnh'",
+  "confidence": 0.95,
+  "description": "BẮT BUỘC ĐIỀN: Phân tích chi tiết những gì bạn thấy trong ảnh (màu sắc, đốm, lá héo...)",
+  "symptoms": ["Triệu chứng 1", "Triệu chứng 2"],
+  "treatment": ["Cách xử lý 1", "Cách xử lý 2"]
+}
+Lưu ý: Tuyệt đối không được để trống trường "description", "symptoms" hay "treatment". Nếu cây khỏe mạnh, hãy mô tả sự khỏe mạnh đó.
+''');
+
+      String mimeType = 'image/jpeg';
+      final pathLower = image.path.toLowerCase();
+      if (pathLower.endsWith('.png')) {
+        mimeType = 'image/png';
+      } else if (pathLower.endsWith('.webp')) {
+        mimeType = 'image/webp';
+      } else if (pathLower.endsWith('.heic') || pathLower.endsWith('.heif')) {
+        mimeType = 'image/heic';
+      }
+
+      final imagePart = DataPart(mimeType, imageBytes);
+
+      final response = await model.generateContent([
+        Content.multi([prompt, imagePart])
+      ]);
+
+      final responseText = response.text;
+      if (responseText != null) {
+        String cleanJson =
+            responseText.replaceAll('```json', '').replaceAll('```', '').trim();
+        return jsonDecode(cleanJson) as Map<String, dynamic>;
+      } else {
+        throw Exception('Không nhận được kết quả từ AI.');
+      }
+    } catch (e) {
+      _log('Lỗi phân tích hình ảnh AI: $e');
+      throw Exception('Lỗi khi gọi AI: $e');
     }
-
-    // Simulate a healthy plant 30% of the time
-    if (random.nextDouble() < 0.3) {
-      return {
-        'diseaseName': 'Khỏe mạnh',
-        'confidence': 0.98,
-        'description':
-            'Không phát hiện dấu hiệu bệnh tật. Cây trồng đang phát triển tốt.',
-        'symptoms': [],
-        'treatment': [],
-        'isHealthy': true,
-      };
-    }
-
-    // Return mock analysis data for a sick plant
-    return {
-      'diseaseName': 'Bệnh đốm lá cà chua',
-      'confidence': 0.92, // 92%
-      'description':
-          'Bệnh đốm lá (Septoria lycopersici) là một trong những bệnh phổ biến nhất trên cây cà chua. Bệnh gây ra bởi nấm và thường xuất hiện ở các lá phía dưới trước tiên, sau đó lan dần lên trên.',
-      'symptoms': [
-        'Xuất hiện các đốm nhỏ, tròn, có màu xám hoặc nâu ở giữa và viền sẫm màu.',
-        'Các đốm có thể hợp nhất thành các mảng lớn, khiến lá bị vàng và rụng sớm.',
-        'Bệnh nặng có thể làm cây còi cọc, giảm năng suất và chất lượng quả.'
-      ],
-      'treatment': [
-        'Cắt tỉa và tiêu hủy các lá bị bệnh để giảm nguồn lây lan.',
-        'Sử dụng các loại thuốc diệt nấm có chứa hoạt chất mancozeb, chlorothalonil hoặc đồng.',
-        'Luân canh cây trồng, không trồng cà chua ở cùng một vị trí trong ít nhất 2-3 năm.'
-      ],
-      'isHealthy': false,
-    };
   }
-
-  // Simulates
 }

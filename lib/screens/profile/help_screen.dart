@@ -58,16 +58,16 @@ class HelpScreen extends StatelessWidget {
             content:
                 'Xem lại các công việc đã làm để đánh giá hiệu quả theo thời gian.',
           ),
-          _timelineItem(
-            number: 7,
-            title: 'Xử lý sự cố',
-            content:
-                'Nếu gặp sự cố (sâu bệnh, hư hỏng thiết bị…), hãy cập nhật ghi chú hoặc liên hệ quản lý.',
-            isWarning: true,
-            isLast: true,
-          ),
+          // _timelineItem(
+          //   number: 7,
+          //   title: 'Xử lý sự cố',
+          //   content:
+          //       'Nếu gặp sự cố (sâu bệnh, hư hỏng thiết bị…), hãy cập nhật ghi chú hoặc liên hệ quản lý.',
+          //   isWarning: true,
+          //   isLast: true,
+          // ),
           const SizedBox(height: 24),
-          _supportSection(),
+          // _supportSection(),
         ],
       ),
     );
@@ -107,7 +107,7 @@ class HelpScreen extends StatelessWidget {
                 ),
                 SizedBox(height: 8),
                 Text(
-                  'Thực hiện theo 7 bước dưới đây để quản lý công việc hiệu quả trên trang trại.',
+                  'Thực hiện theo 6 bước dưới đây để quản lý công việc hiệu quả trên trang trại.',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 14,

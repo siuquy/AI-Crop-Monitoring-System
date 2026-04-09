@@ -1,44 +1,46 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../task/ai_service.dart';
+import '../../core/service/plantnet_api.dart';
 import 'scan_result_screen.dart';
 
-/// Một màn hình tạm thời để xử lý luồng quét bằng camera.
-/// Nó sẽ tự động mở camera, xử lý phân tích AI và điều hướng đến màn hình kết quả.
 class CameraScanScreen extends StatefulWidget {
   final String farmId;
+  final String farmName;
   final String plotId;
+  final String plotName;
   final String bedId;
+  final String bedName;
   const CameraScanScreen({
     super.key,
     required this.farmId,
+    required this.farmName,
     required this.plotId,
+    required this.plotName,
     required this.bedId,
+    required this.bedName,
   });
 
   @override
   State<CameraScanScreen> createState() => _CameraScanScreenState();
 }
 
-enum _ScanState { openingCamera, analyzing }
-
 class _CameraScanScreenState extends State<CameraScanScreen> {
   final ImagePicker _picker = ImagePicker();
-  _ScanState _state = _ScanState.openingCamera;
+  File? _image;
+  bool _isLoading = false;
+  Map<String, dynamic>? _result;
 
   @override
   void initState() {
     super.initState();
-    // Kích hoạt luồng quét ngay khi màn hình được xây dựng.
-    // Sử dụng addPostFrameCallback để đảm bảo context đã sẵn sàng
-    // và tránh các lỗi liên quan đến việc build widget.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scanWithAI();
+      _pickImage();
     });
   }
 
-  Future<void> _scanWithAI() async {
+  // Keep existing camera logic to just pick the image
+  Future<void> _pickImage() async {
     final XFile? pickedFile =
         await _picker.pickImage(source: ImageSource.camera);
 
@@ -48,37 +50,52 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
       return;
     }
 
-    // Cập nhật giao diện để hiển thị trạng thái đang phân tích.
     if (mounted) {
       setState(() {
-        _state = _ScanState.analyzing;
+        _image = File(pickedFile.path);
+        _result = null; // Clear old result when new image is picked
       });
     }
+  }
+
+  Future<void> _detectPlant() async {
+    // If no image → show SnackBar
+    if (_image == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Vui lòng chọn ảnh (Please select an image)')),
+      );
+      return;
+    }
+
+    // Show loading indicator
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
-      final result = await AIService.analyzePlantImage(File(pickedFile.path));
+      // Call PlantNet API (Where API is called)
+      final api = PlantNetApi();
+      final result = await api.detectPlant(_image!);
 
-      // Kiểm tra widget còn trong cây giao diện không trước khi điều hướng.
-      if (!mounted) return;
-
-      // Thay thế màn hình hiện tại bằng màn hình kết quả.
-      // Điều này ngăn người dùng quay lại màn hình quét.
-      Navigator.of(context).pushReplacement(MaterialPageRoute(
-        builder: (_) => ScanResultScreen(
-          imagePath: pickedFile.path,
-          analysisResult: result,
-          farmId: widget.farmId,
-          plotId: widget.plotId,
-          bedId: widget.bedId,
-        ),
-      ));
+      if (mounted) {
+        // Where result is updated
+        setState(() {
+          _result = result;
+        });
+      }
     } catch (e) {
+      // Catch exception from API and show SnackBar
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi phân tích: $e')),
+          SnackBar(content: Text(e.toString())),
         );
-        // Quay lại màn hình trước đó nếu có lỗi.
-        Navigator.of(context).pop();
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -87,15 +104,104 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Quét bằng Camera")),
-      body: Center(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const CircularProgressIndicator(),
+            // --- Image Preview Section ---
+            if (_image != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.file(_image!, height: 300, fit: BoxFit.cover),
+              )
+            else
+              Container(
+                height: 300,
+                color: Colors.grey[200],
+                child: const Center(child: Text("Đang mở camera...")),
+              ),
             const SizedBox(height: 20),
-            Text(_state == _ScanState.openingCamera
-                ? "Đang mở camera..."
-                : "Đang phân tích bằng AI..."),
+
+            // --- Detect Button Section ---
+            ElevatedButton(
+              onPressed: _isLoading ? null : _detectPlant,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: const Color(0xFF1FCFC5), // primaryTeal
+                foregroundColor: Colors.white,
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Text("Phân tích ảnh (Detect)",
+                      style: TextStyle(fontSize: 16)),
+            ),
+            const SizedBox(height: 24),
+
+            // --- Result Section ---
+            if (_result != null) ...[
+              const Text("Kết quả phân tích:",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Tên khoa học: ${_result!['name']}",
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      Text("Tên thông thường: ${_result!['commonName']}",
+                          style: const TextStyle(fontSize: 15)),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Độ tin cậy: ${(_result!['confidence'] * 100).toStringAsFixed(1)}%",
+                        style: const TextStyle(
+                            fontSize: 15,
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ScanResultScreen(
+                        image: _image!,
+                        result: _result!,
+                        farmId: widget.farmId,
+                        farmName: widget.farmName,
+                        plotId: widget.plotId,
+                        plotName: widget.plotName,
+                        bedId: widget.bedId,
+                        bedName: widget.bedName,
+                      ),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: const Color(0xFF1FCFC5), // primaryTeal
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text("Xem chi tiết kết quả",
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ],
           ],
         ),
       ),
