@@ -13,9 +13,9 @@ import '../../core/service/weather_service.dart';
 import '../../models/task_model.dart';
 import '../../models/worker.dart';
 
-const Color primaryTeal = Color(0xFF1FCFC5);
-const Color darkTeal = Color(0xFF14B8B0);
-const Color bgColor = Color(0xFFF6F8F7);
+const Color primaryTeal = Color(0xFF4CAF50); // Chuyển sang xanh lá tươi
+const Color darkTeal = Color(0xFF388E3C); // Màu xanh lá đậm
+const Color bgColor = Color(0xFFF0F8F1); // Màu nền ám xanh nhẹ
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

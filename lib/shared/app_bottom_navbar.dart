@@ -1,13 +1,13 @@
 import 'package:acmms/screens/profile/settings_screen.dart';
-import 'package:acmms/screens/report/camera_scan_screen.dart';
 import 'package:acmms/screens/report/location_input_screen.dart';
 import 'package:acmms/screens/report/report_screen.dart';
+import 'package:acmms/screens/report/scan_history_screen.dart';
 import 'package:flutter/material.dart';
 import 'bottom_tab.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/task/task_list_screen.dart';
 
-const Color primaryTeal = Color(0xFF1FCFC5);
+const Color primaryTeal = Color(0xFF4CAF50); 
 
 class AppBottomNav extends StatelessWidget {
   final BottomTab currentTab;
@@ -126,24 +126,77 @@ class AppBottomNav extends StatelessWidget {
     );
   }
 
-  void _openScan(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const LocationInputScreen(),
+  void _showCameraOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
+      builder: (BuildContext ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16.0),
+                child: Text(
+                  'Tùy chọn nhận diện',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.document_scanner, color: Colors.teal),
+                ),
+                title: const Text('Quét bệnh mới',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Chọn vị trí và chụp ảnh để AI phân tích'),
+                onTap: () {
+                  Navigator.pop(ctx); // Đóng pop-up
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const LocationInputScreen()));
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.history, color: Colors.blue),
+                ),
+                title: const Text('Xem lịch sử',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Xem lại danh sách các ảnh đã quét'),
+                onTap: () {
+                  Navigator.pop(ctx); // Đóng pop-up
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const ScanHistoryScreen()));
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
     );
   }
 
   Widget _centerItem(BuildContext context) {
     return InkWell(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const LocationInputScreen(),
-          ),
-        );
+        _showCameraOptions(context);
       },
       child: Container(
         width: 52,

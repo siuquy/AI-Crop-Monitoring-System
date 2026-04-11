@@ -24,6 +24,7 @@ class _ReportScreenState extends State<ReportScreen>
   late TabController _tabController;
   late Future<List<Report>> _reportsFuture;
   List<Report> _allReports = [];
+  DateTime? _selectedDate; // Thêm biến lưu ngày lọc
 
   @override
   void initState() {
@@ -60,21 +61,62 @@ class _ReportScreenState extends State<ReportScreen>
   }
 
   List<Report> getFilteredReports() {
+    List<Report> filtered = _allReports;
+
+    // 1. Lọc theo trạng thái (Tabs)
     switch (_tabController.index) {
       case 1:
-        return _allReports
-            .where((r) => r.status == ReportStatus.pending)
-            .toList();
+        filtered =
+            filtered.where((r) => r.status == ReportStatus.pending).toList();
+        break;
       case 2:
-        return _allReports
-            .where((r) => r.status == ReportStatus.approved)
-            .toList();
+        filtered =
+            filtered.where((r) => r.status == ReportStatus.approved).toList();
+        break;
       case 3:
-        return _allReports
+        filtered = filtered
             .where((r) => r.status == ReportStatus.needsUpdate)
             .toList();
-      default:
-        return _allReports;
+        break;
+    }
+
+    // 2. Lọc theo ngày đã chọn
+    if (_selectedDate != null) {
+      filtered = filtered.where((r) {
+        return r.createdAt.year == _selectedDate!.year &&
+            r.createdAt.month == _selectedDate!.month &&
+            r.createdAt.day == _selectedDate!.day;
+      }).toList();
+    }
+
+    return filtered;
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now()
+          .add(const Duration(days: 365)), // Cho phép chọn đến năm sau
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: primaryTeal,
+              onPrimary: Colors.white,
+              onSurface: Colors.black87,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
     }
   }
 
@@ -91,12 +133,21 @@ class _ReportScreenState extends State<ReportScreen>
           padding: EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'Danh sách Báo cáo AI',
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.black,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.bold,
+              fontSize: 22,
             ),
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_month_outlined, color: primaryTeal),
+            onPressed: _pickDate,
+            tooltip: 'Lọc theo ngày',
+          ),
+          const SizedBox(width: 8),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: primaryTeal,

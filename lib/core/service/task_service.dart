@@ -1,89 +1,150 @@
-import 'dart:async';
-import 'package:flutter/foundation.dart';
-import '../../models/task_model.dart';
+import 'package:acmms/models/task_model.dart';
+import 'package:flutter/material.dart';
 import 'api_client.dart';
 
 class TaskService {
-  TaskService._();
-
-  static List<TaskModel>? _cache;
-  static DateTime? _cacheTime;
-  static const Duration _cacheDuration = Duration(seconds: 60);
-
-  static void clearCache() {
-    _cache = null;
-    _cacheTime = null;
+  /// Lấy danh sách tất cả các công việc từ API /api/Tasks
+  static Future<List<dynamic>> getAllTasks() async {
+    try {
+      final response = await ApiClient.instance.get('/api/Tasks');
+      if (response != null &&
+          response['success'] == true &&
+          response['data'] is List) {
+        return response['data'];
+      }
+      return [];
+    } catch (e) {
+      throw ApiException('Lỗi khi tải danh sách Công việc (Tasks): $e');
+    }
   }
 
-  static void _log(String message) {
-    if (kDebugMode) {
-      debugPrint('[TaskService] $message');
+  /// Lấy danh sách chi tiết công việc từ API /api/TaskDetails
+  static Future<List<dynamic>> getAllTaskDetails() async {
+    try {
+      final response = await ApiClient.instance.get('/api/TaskDetails');
+      if (response != null &&
+          response['success'] == true &&
+          response['data'] is List) {
+        return response['data'];
+      }
+      return [];
+    } catch (e) {
+      throw ApiException(
+          'Lỗi khi tải danh sách Chi tiết công việc (TaskDetails): $e');
     }
   }
 
   static Future<List<TaskModel>> getTasks({bool forceRefresh = false}) async {
-    if (!forceRefresh &&
-        _cache != null &&
-        _cacheTime != null &&
-        DateTime.now().difference(_cacheTime!) < _cacheDuration) {
-      _log('Returning cached tasks (${_cache!.length})');
-      return _cache!;
-    }
-
-    _log('Fetching fresh tasks from API');
-    final result = await _getTaskList('/api/Tasks');
-
-    _cache = result;
-    _cacheTime = DateTime.now();
-    return result;
+    return getTaskList();
   }
 
-  /// Fetches a single task by its ID.
-  /// NOTE: This has been simplified. The previous implementation was very inefficient,
-  /// fetching all task details for every single task lookup.
-  /// The backend API `/api/Tasks/{id}` should ideally return all necessary information.
-  static Future<TaskModel> getTaskById(String id) async {
+  /// Lấy danh sách toàn bộ TaskModel (kết hợp Task và TaskDetail)
+  static Future<List<TaskModel>> getTaskList() async {
     try {
-      final dynamic taskJson = await ApiClient.instance.get('/api/Tasks/$id');
+      final results = await Future.wait([
+        getAllTasks(),
+        getAllTaskDetails(),
+      ]);
 
-      if (taskJson is Map<String, dynamic>) {
-        // The API response might be wrapped in a 'data' object.
-        Map<String, dynamic> taskData = taskJson.containsKey('data') &&
-                taskJson['data'] is Map<String, dynamic>
-            ? taskJson['data']
-            : taskJson;
+      final tasks = results[0] as List<dynamic>;
+      final taskDetails = results[1] as List<dynamic>;
 
-        return TaskModel.fromJson(taskData);
-      }
+      return tasks.map<TaskModel>((task) {
+        final detail = taskDetails.firstWhere(
+            (d) => d['taskId'] == task['taskId'],
+            orElse: () => null);
 
-      throw ApiException('Dữ liệu task không hợp lệ');
+        final bedIds = detail != null && detail['bedIds'] != null
+            ? List<String>.from(detail['bedIds'])
+            : <String>[];
+        final firstBedId = bedIds.isNotEmpty ? bedIds.first : '';
+
+        return TaskModel(
+          id: task['taskId'] ?? '',
+          title:
+              task['taskTitle'] ?? detail?['taskTitle'] ?? 'Không có tiêu đề',
+          description: task['taskNotes'] ?? detail?['notes'] ?? '',
+          status: _mapStatus(task['taskStatus']),
+          seasonId: detail?['seasonId'] ?? '',
+          bedIds: bedIds,
+          bed: firstBedId,
+          taskType: 'Chăm sóc', // Cấu hình mặc định do API chưa có
+          isUrgent: task['taskStatus']?.toString().toLowerCase() == 'urgent',
+          imageAsset: 'assets/monitoring.jpg',
+          assignedBy: 'Quản lý',
+          assignedRole: 'Admin',
+          avatarIcon: Icons.task_alt,
+          startDate: detail?['startDate'] != null
+              ? DateTime.parse(detail['startDate'])
+              : DateTime.now(),
+          endDate: detail?['endDate'] != null
+              ? DateTime.parse(detail['endDate'])
+              : null,
+        );
+      }).toList();
     } catch (e) {
-      _log('Error fetching task by ID $id: $e');
-      rethrow;
+      throw ApiException('Lỗi khi tải danh sách công việc: $e');
     }
   }
 
-  static Future<List<TaskModel>> _getTaskList(String path) async {
+  static Future<TaskModel> getTaskById(String taskId) async {
     try {
-      final dynamic taskDataJson = await ApiClient.instance.get(path);
+      final results = await Future.wait([
+        getAllTasks(),
+        getAllTaskDetails(),
+      ]);
 
-      List<Map<String, dynamic>> taskListJson;
+      final tasks = results[0];
+      final taskDetails = results[1];
 
-      if (taskDataJson is List) {
-        taskListJson = taskDataJson.whereType<Map<String, dynamic>>().toList();
-      } else if (taskDataJson is Map<String, dynamic> &&
-          taskDataJson.containsKey('data') &&
-          taskDataJson['data'] is List) {
-        taskListJson =
-            (taskDataJson['data'] as List).cast<Map<String, dynamic>>();
-      } else {
-        throw ApiException('Dữ liệu danh sách task không hợp lệ');
+      // Tìm Task
+      final task =
+          tasks.firstWhere((t) => t['taskId'] == taskId, orElse: () => null);
+      if (task == null) {
+        throw ApiException('Không tìm thấy công việc với ID: $taskId');
       }
 
-      return taskListJson.map(TaskModel.fromJson).toList();
+      // Tìm TaskDetail tương ứng
+      final detail = taskDetails.firstWhere((d) => d['taskId'] == taskId,
+          orElse: () => null);
+
+      final bedIds = detail != null && detail['bedIds'] != null
+          ? List<String>.from(detail['bedIds'])
+          : <String>[];
+      final firstBedId = bedIds.isNotEmpty ? bedIds.first : '';
+
+      return TaskModel(
+        id: task['taskId'] ?? '',
+        title: task['taskTitle'] ?? detail?['taskTitle'] ?? 'Không có tiêu đề',
+        description: task['taskNotes'] ?? detail?['notes'] ?? '',
+        status: _mapStatus(task['taskStatus']),
+        seasonId: detail?['seasonId'] ?? '',
+        bedIds: bedIds,
+        bed: firstBedId,
+        taskType: 'Chăm sóc',
+        isUrgent: task['taskStatus']?.toString().toLowerCase() == 'urgent',
+        imageAsset: 'assets/monitoring.jpg',
+        assignedBy: 'Quản lý',
+        assignedRole: 'Admin',
+        avatarIcon: Icons.task_alt,
+        startDate: detail?['startDate'] != null
+            ? DateTime.parse(detail['startDate'])
+            : DateTime.now(),
+        endDate: detail?['endDate'] != null
+            ? DateTime.parse(detail['endDate'])
+            : null,
+      );
     } catch (e) {
-      _log('Error fetching task list: $e');
-      rethrow;
+      throw ApiException('Lỗi khi tải chi tiết công việc: $e');
     }
+  }
+
+  static TaskStatus _mapStatus(String? statusStr) {
+    if (statusStr == null) return TaskStatus.pending;
+    final s = statusStr.toLowerCase();
+    if (s.contains('active') || s.contains('doing')) return TaskStatus.doing;
+    if (s.contains('completed')) return TaskStatus.completed;
+    if (s.contains('urgent')) return TaskStatus.urgent;
+    return TaskStatus.pending;
   }
 }

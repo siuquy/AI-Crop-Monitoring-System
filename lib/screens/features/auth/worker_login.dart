@@ -169,7 +169,7 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                         const SizedBox(height: 6),
                         const Text(
-                          'Truy cập hệ thống quản lý nông nghiệp',
+                          'Ứng dụng cho nhân viên nông trại thông minh',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 14,
@@ -229,21 +229,7 @@ class _LoginScreenState extends State<LoginScreen>
                                   return null;
                                 },
                               ),
-                              const SizedBox(height: 10),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton(
-                                  onPressed: () {},
-                                  child: const Text(
-                                    'Quên mật khẩu?',
-                                    style: TextStyle(
-                                      color: primaryTeal,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 24),
                               SizedBox(
                                 width: double.infinity,
                                 height: 56,

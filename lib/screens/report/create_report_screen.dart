@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../core/service/report_service.dart';
 import '../../core/service/api_client.dart';
 import '../../core/service/farm_service.dart';
 import '../../core/service/plot_service.dart';
 import '../../core/service/bed_service.dart';
+import '../../core/service/season_detail_service.dart';
 
 enum ReportSeverity { low, medium, high }
 
@@ -29,6 +31,8 @@ class CreateReportScreen extends StatefulWidget {
   final String farmId;
   final String plotId;
   final String bedId;
+  final String? seasonId;
+  final String? ownerId;
 
   const CreateReportScreen({
     super.key,
@@ -37,6 +41,8 @@ class CreateReportScreen extends StatefulWidget {
     required this.farmId,
     required this.plotId,
     required this.bedId,
+    this.seasonId,
+    this.ownerId,
   });
 
   @override
@@ -50,6 +56,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   bool _isSubmitting = false;
   ReportSeverity _severity = ReportSeverity.medium;
   late Future<Map<String, String>> _locationNamesFuture;
+  String? _resolvedSeasonId;
 
   @override
   void initState() {
@@ -105,6 +112,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       }
     });
 
+    _resolvedSeasonId = widget.seasonId;
     String finalDescription = descBuffer.toString().trim();
     if (finalDescription.isEmpty) {
       bool isHealthy = widget.analysisResult['isHealthy'] == true ||
@@ -135,11 +143,23 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       FarmService.getFarmMap(),
       PlotService.getPlotMap(),
       BedService.getBedMap(),
+      SeasonDetailService.getSeasonDetailMap(),
     ]);
 
     final farmMap = results[0] as Map<String, String>;
     final plotMap = results[1] as Map<String, Map<String, dynamic>>;
     final bedMap = results[2] as Map<String, Map<String, dynamic>>;
+    final seasonDetailMap = results[3] as Map<String, Map<String, dynamic>>;
+
+    // Tự động tìm seasonId thông qua bedId nếu chưa được truyền vào
+    if (_resolvedSeasonId == null) {
+      for (var detail in seasonDetailMap.values) {
+        if (detail['bedId']?.toString() == widget.bedId) {
+          _resolvedSeasonId = detail['seasonId']?.toString();
+          break;
+        }
+      }
+    }
 
     return {
       'farmName': farmMap[widget.farmId] ?? 'Không rõ',
@@ -158,19 +178,21 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     });
 
     try {
-      // API hiện tại chưa hỗ trợ trường "mức độ nghiêm trọng" riêng.
-      // Giải pháp tạm thời: Ghép mức độ vào phần mô tả.
+      // MẸO: Vì không được sửa Backend, ta sẽ "giấu" cục JSON này vào cuối description.
+      // Khi tải về, Mobile sẽ tự bóc tách ra để hiển thị UI đẹp.
+      final aiJsonString = jsonEncode(widget.analysisResult);
       final fullDescription =
-          'Mức độ nghiêm trọng: ${_severity.displayName}\n\n${_descriptionController.text}';
+          'Mức độ nghiêm trọng: ${_severity.displayName}\n\n${_descriptionController.text}\n\n---AI_RESULT_JSON---\n$aiJsonString';
 
-      // Gọi hàm createReport với các tham số được API hỗ trợ
       await ReportService.createReport(
         title: _titleController.text,
         description: fullDescription,
         image: File(widget.imagePath),
-        farmId: widget.farmId,
         plotId: widget.plotId,
         bedId: widget.bedId,
+        aiResults: widget.analysisResult,
+        seasonId: _resolvedSeasonId,
+        ownerId: widget.ownerId,
       );
 
       if (!mounted) return;
@@ -242,7 +264,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                       TextFormField(
                         controller: _titleController,
                         decoration: const InputDecoration(
-                          labelText: 'Tiêu đề báo cáo (AI gợi ý)',
+                          labelText: 'Tiêu đề báo cáo',
                           border: OutlineInputBorder(),
                         ),
                         validator: (value) {
@@ -256,8 +278,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                       TextFormField(
                         controller: _descriptionController,
                         decoration: const InputDecoration(
-                          labelText: 'Mô tả chi tiết (AI gợi ý)',
+                          labelText: 'Mô tả chi tiết',
                           border: OutlineInputBorder(),
+                          hintText:
+                              'Nhập mô tả tình trạng bệnh hoặc chọn gợi ý bên dưới...',
                         ),
                         maxLines: 5,
                         validator: (value) {
@@ -267,6 +291,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                           return null;
                         },
                       ),
+                      const SizedBox(height: 16),
+                      _buildQuickSymptomChips(),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<ReportSeverity>(
                         value: _severity,
@@ -308,14 +334,37 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                               fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 16),
                       Center(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            File(widget.imagePath),
-                            height: 200,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
+                        child: Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.file(
+                                File(widget.imagePath),
+                                height: 200,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  color: Colors.white70,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(Icons.delete_outline,
+                                      color: Colors.red),
+                                  tooltip: 'Xóa ảnh và chụp lại',
+                                  onPressed: () {
+                                    // Quay lại màn hình quét (ScanResultScreen) để người dùng chọn "Thử ảnh khác"
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -375,6 +424,51 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildQuickSymptomChips() {
+    final List<String> commonSymptoms = [
+      'Vàng lá',
+      'Đốm đen',
+      'Héo rũ',
+      'Sâu ăn lá',
+      'Thối rễ',
+      'Phấn trắng',
+      'Quăn mép lá'
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Gợi ý triệu chứng nhanh:',
+            style: TextStyle(
+                fontSize: 13, fontStyle: FontStyle.italic, color: Colors.grey)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8.0,
+          runSpacing: 8.0,
+          children: commonSymptoms.map((symptom) {
+            return ActionChip(
+              label: Text(symptom, style: const TextStyle(fontSize: 13)),
+              backgroundColor: Colors.teal.shade50,
+              onPressed: () {
+                final currentText = _descriptionController.text;
+                if (currentText.isEmpty ||
+                    currentText
+                        .contains('Đã phát hiện vấn đề trên cây trồng')) {
+                  _descriptionController.text = symptom;
+                } else {
+                  _descriptionController.text = '$currentText, $symptom';
+                }
+                _descriptionController.selection = TextSelection.fromPosition(
+                  TextPosition(offset: _descriptionController.text.length),
+                );
+              },
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }

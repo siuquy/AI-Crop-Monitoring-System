@@ -10,7 +10,7 @@
 <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <application
         android:name="${applicationName}"
-        android:label="acmms"
+        android:label="Nông Trại Xanh"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
         android:requestLegacyExternalStorage="true">

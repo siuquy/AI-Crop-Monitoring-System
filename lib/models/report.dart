@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'report_status.dart';
 
 class Report {
@@ -5,11 +6,12 @@ class Report {
   final String title;
   final String? description;
   final String? diseaseName;
-  final String? imageUrl; // Có thể là URL hoặc đường dẫn asset
+  final String? imageUrl;
   final DateTime createdAt;
   final ReportStatus status;
-  final String? ownerComment; // Nhận xét từ chuyên gia khi cần bổ sung
+  final String? ownerComment;
   final String? workerName;
+  final Map<String, dynamic>? aiResults;
 
   Report({
     required this.id,
@@ -21,6 +23,7 @@ class Report {
     required this.status,
     this.ownerComment,
     this.workerName,
+    this.aiResults,
   });
 
   factory Report.fromJson(Map<String, dynamic> json) {
@@ -41,16 +44,41 @@ class Report {
         status = ReportStatus.pending;
     }
 
+    Map<String, dynamic>? parsedAiResults;
+    String? cleanDescription = json['description'];
+
+    if (json['aiResultsJson'] != null &&
+        json['aiResultsJson'].toString().isNotEmpty) {
+      try {
+        parsedAiResults = jsonDecode(json['aiResultsJson']);
+      } catch (e) {
+        // Bỏ qua lỗi nếu JSON không hợp lệ
+      }
+    }
+
+    if (parsedAiResults == null &&
+        cleanDescription != null &&
+        cleanDescription.contains('---AI_RESULT_JSON---')) {
+      final parts = cleanDescription.split('---AI_RESULT_JSON---');
+      cleanDescription = parts[0].trim();
+      if (parts.length > 1) {
+        try {
+          parsedAiResults = jsonDecode(parts[1].trim());
+        } catch (e) {}
+      }
+    }
+
     return Report(
       id: json['reportId'],
       title: json['title'],
-      description: json['description'],
+      description: cleanDescription,
       createdAt: DateTime.parse(json['createdAt']),
       status: status,
       workerName: json['workerName'],
       imageUrl: json['imageUrl'],
       diseaseName: json['diseaseName'],
       ownerComment: json['ownerComment'],
+      aiResults: parsedAiResults,
     );
   }
 }

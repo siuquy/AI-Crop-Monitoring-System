@@ -507,7 +507,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   void _markAsCompleted() {
     if (_task == null) return;
     setState(() {
-      _task = _task!.copyWith(status: TaskStatus.completed);
+      _task!.status = TaskStatus.completed;
       _taskWasModified = true;
     });
 

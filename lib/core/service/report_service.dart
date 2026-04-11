@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../models/report.dart';
 import 'api_client.dart';
@@ -31,12 +32,17 @@ class ReportService {
     _log('Đang tải danh sách báo cáo từ API...');
     try {
       final apiClient = ApiClient.instance;
-      final response = await apiClient.get('/api/reports');
+      final response = await apiClient.get('/api/Reports');
 
       if (response is Map<String, dynamic> && response['data'] is List) {
         final List<dynamic> reportData = response['data'];
-        final reports =
-            reportData.map((json) => Report.fromJson(json)).toList();
+        final reports = reportData.map((json) {
+          // Đảm bảo tương thích với model cũ nếu model dùng 'id' thay vì 'reportId'
+          if (json['id'] == null && json['reportId'] != null) {
+            json['id'] = json['reportId'];
+          }
+          return Report.fromJson(json);
+        }).toList();
 
         _cache = reports;
         _cacheTime = DateTime.now();
@@ -60,10 +66,14 @@ class ReportService {
   static Future<void> createReport({
     required String title,
     required String description,
+    String? reportType = 'Diseases', // Loại báo cáo (mặc định là 'Diseases')
     File? image, // Giữ lại tham số để tương thích, nhưng API chưa hỗ trợ
-    String? farmId,
     String? plotId,
     String? bedId,
+    String? seasonId, // Id mùa vụ
+    String? ownerId, // Id người sở hữu/quản lý
+    Map<String, dynamic>?
+        aiResults, // Dữ liệu Json từ kết quả nhận diện (PlantNet, v.v.)
   }) async {
     try {
       final worker = await WorkerService.getCurrentWorker();
@@ -71,18 +81,29 @@ class ReportService {
       final apiClient = ApiClient.instance;
       dynamic response;
 
+      // Chuyển đổi Dữ liệu dạng Map thành chuỗi JSON String chuẩn để Web có thể phân tích
+      String? aiResultsJsonStr;
+      if (aiResults != null) {
+        aiResultsJsonStr = jsonEncode(aiResults);
+      }
+
       // Trả lại phương thức post bằng JSON thuần để tránh lỗi 415 từ Server
       response = await apiClient.post(
-        '/api/reports',
+        '/api/Reports',
         body: {
-          'workerId': worker.id,
+          'createdBy': worker.id, // Đổi từ workerId sang createdBy
           'title': title,
           'description': description,
-          'status': 'active',
+          'status': 'SENT_TO_OWNER', // Trạng thái mặc định mới khi tạo báo cáo
           'submitDate': submitDate,
-          if (farmId != null) 'farmId': farmId,
+          if (reportType != null) 'reportType': reportType,
           if (plotId != null) 'plotId': plotId,
           if (bedId != null) 'bedId': bedId,
+          if (seasonId != null) 'seasonId': seasonId,
+          if (ownerId != null) 'ownerId': ownerId,
+          if (aiResultsJsonStr != null)
+            'aiResultsJson':
+                aiResultsJsonStr, // Đẩy cục JSON đã convert lên API
         },
       );
 
@@ -113,7 +134,7 @@ class ReportService {
     try {
       final apiClient = ApiClient.instance;
       final response = await apiClient.putMultipart(
-        '/api/reports/$reportId',
+        '/api/Reports/$reportId',
         fields: {
           'description': description,
         },

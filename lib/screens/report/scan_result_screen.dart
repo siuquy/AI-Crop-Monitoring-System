@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../task/ai_service.dart';
+import '../../core/service/plantnet_api.dart';
 import 'create_report_screen.dart'; // Import màn hình tạo báo cáo
 
 class ScanResultScreen extends StatelessWidget {
@@ -15,6 +16,8 @@ class ScanResultScreen extends StatelessWidget {
   final String plotName;
   final String bedId;
   final String bedName;
+  final String? seasonId;
+  final String? ownerId;
 
   const ScanResultScreen({
     super.key,
@@ -26,6 +29,8 @@ class ScanResultScreen extends StatelessWidget {
     required this.plotName,
     required this.bedId,
     required this.bedName,
+    this.seasonId,
+    this.ownerId,
   });
 
   @override
@@ -252,6 +257,8 @@ class ScanResultScreen extends StatelessWidget {
                             farmId: farmId,
                             plotId: plotId,
                             bedId: bedId,
+                            seasonId: seasonId,
+                            ownerId: ownerId,
                           ),
                         ),
                       );
@@ -373,7 +380,12 @@ class ScanResultScreen extends StatelessWidget {
 
   Future<void> _scanAgain(BuildContext context, ImageSource source) async {
     final picker = ImagePicker();
-    final XFile? pickedFile = await picker.pickImage(source: source);
+    final XFile? pickedFile = await picker.pickImage(
+      source: source,
+      imageQuality: 70, // Giảm chất lượng ảnh xuống 70%
+      maxWidth: 1080, // Giới hạn độ phân giải tối đa (chiều rộng)
+      maxHeight: 1080, // Giới hạn độ phân giải tối đa (chiều cao)
+    );
     if (pickedFile == null) return;
 
     if (!context.mounted) return;
@@ -398,7 +410,8 @@ class ScanResultScreen extends StatelessWidget {
     );
 
     try {
-      final result = await AIService.analyzePlantImage(File(pickedFile.path));
+      // Tạm thời vô hiệu hóa Gemini, chỉ dùng API PlantNet
+      final result = await PlantNetApi.detectPlant(File(pickedFile.path));
       if (!context.mounted) return;
       Navigator.pop(context); // Đóng dialog loading
 
@@ -415,6 +428,8 @@ class ScanResultScreen extends StatelessWidget {
             plotName: plotName,
             bedId: bedId,
             bedName: bedName,
+            seasonId: seasonId,
+            ownerId: ownerId,
           ),
         ),
       );

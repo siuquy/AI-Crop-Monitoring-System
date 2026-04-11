@@ -21,9 +21,19 @@ class ApiException implements Exception {
   }
 }
 
+class DevHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return super.createHttpClient(context)
+      ..badCertificateCallback =
+          (X509Certificate cert, String host, int port) => true;
+  }
+}
+
 class ApiClient {
-  // Sử dụng mẫu Singleton để đảm bảo chỉ có một instance của ApiClient
-  ApiClient._privateConstructor();
+  ApiClient._privateConstructor() {
+    HttpOverrides.global = DevHttpOverrides();
+  }
   static final ApiClient instance = ApiClient._privateConstructor();
 
   String? _authToken;
@@ -32,12 +42,14 @@ class ApiClient {
       return 'https://localhost:7093';
     }
     if (Platform.isAndroid) {
-      return 'http://192.168.1.189:5298';
+      return 'https://192.168.1.189:7093';
     }
     return 'https://localhost:7093';
   }
 
   static const Duration _timeout = Duration(seconds: 30);
+
+  String? get authToken => _authToken;
 
   void setAuthToken(String? token) {
     _authToken = token;
@@ -236,6 +248,16 @@ class ApiClient {
               'Không thể phân tích body của lỗi dưới dạng JSON. Body: ${response.body}');
         }
       }
+
+      // Bắt riêng các mã lỗi phân quyền phổ biến
+      if (response.statusCode == 403) {
+        errorMessage =
+            'Tài khoản không có quyền truy cập dữ liệu này (Lỗi 403). Vui lòng đăng nhập bằng tài khoản Quản lý.';
+      } else if (response.statusCode == 401) {
+        errorMessage =
+            'Phiên đăng nhập đã hết hạn (Lỗi 401). Vui lòng đăng nhập lại.';
+      }
+
       throw ApiException(errorMessage, statusCode: response.statusCode);
     }
   }

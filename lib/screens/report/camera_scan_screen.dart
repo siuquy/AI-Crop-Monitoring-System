@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/service/plantnet_api.dart';
+import '../../core/service/scan_history_service.dart'; // Import service lịch sử
 import 'scan_result_screen.dart';
 
 class CameraScanScreen extends StatefulWidget {
@@ -39,14 +40,17 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
     });
   }
 
-  // Keep existing camera logic to just pick the image
-  Future<void> _pickImage() async {
-    final XFile? pickedFile =
-        await _picker.pickImage(source: ImageSource.camera);
+  Future<void> _pickImage({ImageSource source = ImageSource.camera}) async {
+    final XFile? pickedFile = await _picker.pickImage(
+      source: source,
+      imageQuality: 70, // Giảm chất lượng ảnh xuống 70%
+      maxWidth: 1080, // Giới hạn độ phân giải tối đa (chiều rộng)
+      maxHeight: 1080, // Giới hạn độ phân giải tối đa (chiều cao)
+    );
 
-    // Nếu người dùng hủy camera, quay lại màn hình trước đó.
+    // Nếu người dùng hủy chọn ảnh, kiểm tra nếu chưa có ảnh nào thì quay lại
     if (pickedFile == null) {
-      if (mounted) Navigator.of(context).pop();
+      if (_image == null && mounted) Navigator.of(context).pop();
       return;
     }
 
@@ -74,9 +78,13 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
     });
 
     try {
-      // Call PlantNet API (Where API is called)
-      final api = PlantNetApi();
-      final result = await api.detectPlant(_image!);
+      Map<String, dynamic> result;
+
+      // Tạm thời vô hiệu hóa Gemini, chỉ dùng API PlantNet
+      result = await PlantNetApi.detectPlant(_image!);
+
+      // Lưu lại lịch sử quét xuống máy
+      await ScanHistoryService.saveScan(_image!.path, result);
 
       if (mounted) {
         // Where result is updated
@@ -88,7 +96,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
       // Catch exception from API and show SnackBar
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
         );
       }
     } finally {
@@ -111,9 +119,35 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
           children: [
             // --- Image Preview Section ---
             if (_image != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(_image!, height: 300, fit: BoxFit.cover),
+              Column(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(_image!,
+                        width: double.infinity, height: 300, fit: BoxFit.cover),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _isLoading
+                            ? null
+                            : () => _pickImage(source: ImageSource.camera),
+                        icon: const Icon(Icons.camera_alt),
+                        label: const Text("Chụp lại"),
+                      ),
+                      const SizedBox(width: 16),
+                      OutlinedButton.icon(
+                        onPressed: _isLoading
+                            ? null
+                            : () => _pickImage(source: ImageSource.gallery),
+                        icon: const Icon(Icons.photo_library),
+                        label: const Text("Thư viện"),
+                      ),
+                    ],
+                  ),
+                ],
               )
             else
               Container(
@@ -155,15 +189,18 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("Tên khoa học: ${_result!['name']}",
+                      Text(
+                          "Kết quả nhận diện: ${_result!['name'] ?? _result!['diseaseName'] ?? 'Không rõ'}",
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 8),
-                      Text("Tên thông thường: ${_result!['commonName']}",
-                          style: const TextStyle(fontSize: 15)),
-                      const SizedBox(height: 8),
+                      if (_result!['commonName'] != null) ...[
+                        Text("Tên thông thường: ${_result!['commonName']}",
+                            style: const TextStyle(fontSize: 15)),
+                        const SizedBox(height: 8),
+                      ],
                       Text(
-                        "Độ tin cậy: ${(_result!['confidence'] * 100).toStringAsFixed(1)}%",
+                        "Độ tin cậy: ${((_result!['confidence'] ?? 0.0) * 100).toStringAsFixed(1)}%",
                         style: const TextStyle(
                             fontSize: 15,
                             color: Colors.green,

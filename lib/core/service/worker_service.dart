@@ -1,25 +1,35 @@
+import 'dart:convert';
 import 'package:acmms/models/worker.dart';
 
 import 'api_client.dart';
 
 class WorkerService {
-  /// Lấy thông tin của người dùng đang đăng nhập.
-  ///
-  /// LƯU Ý: API hiện tại (`/api/Workers`) trả về một danh sách TẤT CẢ người dùng.
-  /// Để màn hình Cài đặt hoạt động, phương thức này đang tạm thời lấy người dùng đầu tiên
-  /// trong danh sách đó.
-  ///
-  /// TODO: Thay thế phương thức này bằng một API call chính xác để lấy
-  /// thông tin của người dùng đã đăng nhập, ví dụ: `/api/workers/me` hoặc `/api/auth/profile`.
   static Future<Worker> getCurrentWorker() async {
     try {
-      // Tạm thời lấy người dùng đầu tiên từ danh sách tất cả người dùng.
-      final allWorkers = await getWorkers();
-      if (allWorkers.isNotEmpty) {
-        return allWorkers.first;
-      } else {
-        throw ApiException('Không tìm thấy người dùng nào.');
+      final token = ApiClient.instance.authToken;
+      if (token != null && token.isNotEmpty) {
+        final parts = token.split('.');
+        if (parts.length == 3) {
+          final payload = parts[1];
+          final normalized = base64Url.normalize(payload);
+          final resp = utf8.decode(base64Url.decode(normalized));
+          final decodedToken = jsonDecode(resp);
+
+          final userId = decodedToken['nameid'] ?? decodedToken['sub'] ?? '';
+          final email = decodedToken['email'] ?? '';
+          final role = decodedToken['role'] ?? 'Worker';
+          final fullName =
+              decodedToken['unique_name'] ?? email.split('@').first;
+
+          return Worker(
+            id: userId,
+            fullName: fullName,
+            role: role,
+            email: email,
+          );
+        }
       }
+      throw ApiException('Không tìm thấy thông tin đăng nhập hợp lệ.');
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -28,21 +38,35 @@ class WorkerService {
     }
   }
 
-  /// Lấy danh sách tất cả các worker từ API.
   static Future<List<Worker>> getWorkers() async {
     try {
       final apiClient = ApiClient.instance;
-      final response = await apiClient.get('/api/Workers');
+      final response =
+          await apiClient.get('/api/Staff'); // Cập nhật sang API mới
       if (response != null &&
           response['success'] == true &&
           response['data'] is List) {
         final List<dynamic> workerData = response['data'];
-        return workerData.map((json) => Worker.fromJson(json)).toList();
+        return workerData.map((json) {
+          // Ánh xạ lại các trường từ API mới cho tương thích với model cũ
+          if (json['id'] == null && json['userId'] != null) {
+            json['id'] = json['userId'];
+          }
+          if (json['fullName'] == null && json['fullname'] != null) {
+            json['fullName'] = json['fullname'];
+          }
+          if (json['role'] == null && json['roleName'] != null) {
+            json['role'] = json['roleName'];
+          }
+          return Worker.fromJson(json);
+        }).toList();
       } else {
-        throw ApiException(
-            response?['message'] ?? 'Không tải được danh sách người dùng.');
+        return [];
       }
-    } on ApiException {
+    } on ApiException catch (e) {
+      if (e.statusCode == 403) {
+        return [];
+      }
       rethrow;
     } catch (e) {
       throw ApiException(

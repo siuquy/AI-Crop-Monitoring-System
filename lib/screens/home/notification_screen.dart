@@ -139,6 +139,18 @@ class _NotificationScreenState extends State<NotificationScreen> {
           );
         },
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          // Bắn thông báo ra ngoài màn hình điện thoại thật
+          NotificationService.showImmediateNotification(
+            id: DateTime.now().millisecond,
+            title: 'Nhiệm vụ mới!',
+            body: 'Quản lý vừa giao cho bạn một công việc cần xử lý gấp.',
+          );
+        },
+        icon: const Icon(Icons.notification_add),
+        label: const Text('Test Thông báo'),
+      ),
     );
   }
 }
