@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:acmms/screens/features/auth/welcome_screen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'core/service/notifiactionservice.dart';
 
@@ -16,7 +17,9 @@ class MyHttpOverrides extends HttpOverrides {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
   HttpOverrides.global = MyHttpOverrides();
+  await dotenv.load(fileName: ".env");
   await NotificationService.init();
   runApp(const MyApp());
 }

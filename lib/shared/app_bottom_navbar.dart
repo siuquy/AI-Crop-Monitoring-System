@@ -7,7 +7,7 @@ import 'bottom_tab.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/task/task_list_screen.dart';
 
-const Color primaryTeal = Color(0xFF4CAF50); 
+const Color primaryTeal = Color(0xFF4CAF50);
 
 class AppBottomNav extends StatelessWidget {
   final BottomTab currentTab;
@@ -146,12 +146,12 @@ class AppBottomNav extends StatelessWidget {
               ),
               ListTile(
                 leading: Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.teal.shade50,
+                    color: primaryTeal.withOpacity(0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.document_scanner, color: Colors.teal),
+                  child: const Icon(Icons.document_scanner, color: primaryTeal),
                 ),
                 title: const Text('Quét bệnh mới',
                     style: TextStyle(fontWeight: FontWeight.w600)),
@@ -167,12 +167,12 @@ class AppBottomNav extends StatelessWidget {
               const Divider(height: 1),
               ListTile(
                 leading: Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: Colors.blue.shade50,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.history, color: Colors.blue),
+                  child: Icon(Icons.history, color: Colors.blue.shade700),
                 ),
                 title: const Text('Xem lịch sử',
                     style: TextStyle(fontWeight: FontWeight.w600)),

@@ -8,7 +8,7 @@ class MockReports {
       title: 'Báo cáo sâu bệnh hại lúa',
       diseaseName: 'Bệnh đạo ôn',
       description: 'Phát hiện bệnh đạo ôn trên diện rộng tại khu A.',
-      imageUrl: 'assets/images/placeholder.png', // Sử dụng ảnh placeholder
+      imageUrl: 'assets/images/placeholder.png',
       createdAt: DateTime.now().subtract(const Duration(days: 1)),
       status: ReportStatus.approved,
       workerName: 'Nguyễn Văn A',

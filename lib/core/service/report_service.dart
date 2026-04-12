@@ -6,7 +6,6 @@ import 'api_client.dart';
 import 'worker_service.dart';
 
 class ReportService {
-  // --- Caching Mechanism ---
   static List<Report>? _cache;
   static DateTime? _cacheTime;
   static const Duration _cacheDuration = Duration(minutes: 1);
@@ -17,9 +16,6 @@ class ReportService {
     }
   }
 
-  /// Lấy danh sách báo cáo.
-  ///
-  /// [forceRefresh] nếu là true, sẽ bỏ qua cache và lấy dữ liệu mới từ API.
   static Future<List<Report>> getReports({bool forceRefresh = false}) async {
     if (!forceRefresh &&
         _cache != null &&
@@ -37,7 +33,6 @@ class ReportService {
       if (response is Map<String, dynamic> && response['data'] is List) {
         final List<dynamic> reportData = response['data'];
         final reports = reportData.map((json) {
-          // Đảm bảo tương thích với model cũ nếu model dùng 'id' thay vì 'reportId'
           if (json['id'] == null && json['reportId'] != null) {
             json['id'] = json['reportId'];
           }
@@ -59,21 +54,37 @@ class ReportService {
     }
   }
 
-  /// Tạo báo cáo mới.
-  ///
-  /// API chỉ nhận JSON với các trường: workerId, title, description, status, submitDate.
-  /// Các trường farmId, plotId, bedId, image không được API hỗ trợ hiện tại.
+  static Future<String?> getOwnerRoleId() async {
+    _log('Đang tải danh sách vai trò để lấy Owner ID...');
+    try {
+      final apiClient = ApiClient.instance;
+      final response = await apiClient.get('/api/Auth/roles');
+
+      if (response is Map<String, dynamic> && response['success'] == true) {
+        final List<dynamic> roles = response['data'];
+        final ownerRole = roles.firstWhere(
+          (role) => role['roleName'] == 'Owner',
+          orElse: () => null,
+        );
+        return ownerRole?['roleId']?.toString();
+      }
+      return null;
+    } catch (e) {
+      _log('Lỗi khi lấy ID của Owner: $e');
+      return null;
+    }
+  }
+
   static Future<void> createReport({
     required String title,
     required String description,
-    String? reportType = 'Diseases', // Loại báo cáo (mặc định là 'Diseases')
-    File? image, // Giữ lại tham số để tương thích, nhưng API chưa hỗ trợ
+    String? reportType = 'Diseases',
+    List<File>? images,
     String? plotId,
     String? bedId,
-    String? seasonId, // Id mùa vụ
-    String? ownerId, // Id người sở hữu/quản lý
-    Map<String, dynamic>?
-        aiResults, // Dữ liệu Json từ kết quả nhận diện (PlantNet, v.v.)
+    String? seasonId,
+    String? ownerId,
+    Map<String, dynamic>? aiResults,
   }) async {
     try {
       final worker = await WorkerService.getCurrentWorker();
@@ -81,34 +92,39 @@ class ReportService {
       final apiClient = ApiClient.instance;
       dynamic response;
 
-      // Chuyển đổi Dữ liệu dạng Map thành chuỗi JSON String chuẩn để Web có thể phân tích
       String? aiResultsJsonStr;
       if (aiResults != null) {
         aiResultsJsonStr = jsonEncode(aiResults);
       }
 
-      // Trả lại phương thức post bằng JSON thuần để tránh lỗi 415 từ Server
+      // Gọi API dạng JSON
       response = await apiClient.post(
         '/api/Reports',
         body: {
-          'createdBy': worker.id, // Đổi từ workerId sang createdBy
+          'createdBy': worker.id,
           'title': title,
           'description': description,
-          'status': 'SENT_TO_OWNER', // Trạng thái mặc định mới khi tạo báo cáo
+          'status': 'SENT_TO_OWNER',
           'submitDate': submitDate,
+          'updatedAt': submitDate,
+          'UpdatedAt': submitDate,
+          'update_at': submitDate,
+          'updated_at': submitDate, 
           if (reportType != null) 'reportType': reportType,
           if (plotId != null) 'plotId': plotId,
           if (bedId != null) 'bedId': bedId,
           if (seasonId != null) 'seasonId': seasonId,
+          if (seasonId != null) 'SeasonId': seasonId,
+          if (seasonId != null) 'season_id': seasonId,
           if (ownerId != null) 'ownerId': ownerId,
-          if (aiResultsJsonStr != null)
-            'aiResultsJson':
-                aiResultsJsonStr, // Đẩy cục JSON đã convert lên API
+          if (ownerId != null) 'owner_id': ownerId,
+          if (aiResultsJsonStr != null) 'aiResultsJson': aiResultsJsonStr,
+          if (aiResultsJsonStr != null) 'AiResultsJson': aiResultsJsonStr,
+          if (aiResultsJsonStr != null) 'ai_results_json': aiResultsJsonStr,
         },
       );
 
       if (response is Map<String, dynamic> && response['success'] == true) {
-        // Xóa cache để danh sách báo cáo được làm mới lần sau
         _cache = null;
         _cacheTime = null;
         _log('Tạo báo cáo thành công.');

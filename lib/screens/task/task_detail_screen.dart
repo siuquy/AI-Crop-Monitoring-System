@@ -9,6 +9,10 @@ import 'package:acmms/core/service/bed_service.dart';
 import 'package:acmms/core/service/plot_service.dart';
 import 'package:acmms/core/service/farm_service.dart';
 
+const Color primaryTeal = Color(0xFF4CAF50); 
+const Color darkTeal = Color(0xFF388E3C); 
+const Color bgColor = Color(0xFFF0F8F1); 
+
 class TaskDisplayData {
   final TaskModel task;
   final String cropName;
@@ -136,13 +140,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         return Future.value(false);
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF6F8F7),
+        backgroundColor: bgColor,
         appBar: AppBar(
-          title: const Text('Chi tiết công việc'),
+          title: const Text('Chi tiết nhiệm vụ',
+              style: TextStyle(fontWeight: FontWeight.bold)),
           centerTitle: true,
           backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          elevation: 0.5,
+          foregroundColor: Colors.black87,
+          elevation: 0,
         ),
         body: FutureBuilder<TaskDisplayData>(
           future: _taskDisplayFuture,
@@ -191,36 +196,62 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: _buildTags(displayData.task)),
-              const SizedBox(width: 12),
-              _buildImage(displayData.task),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: primaryTeal.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(displayData.task.avatarIcon,
+                    color: primaryTeal, size: 32),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: _buildTags(displayData.task)),
+                        _buildStatusBadge(displayData.task.status),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      displayData.task.title,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            displayData.task.title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 16),
           // Hiển thị mô tả công việc
           if (displayData.task.description.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 8.0, top: 4.0),
               child: Text(
                 displayData.task.description,
-                style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+                style: TextStyle(
+                    color: Colors.grey.shade700, fontSize: 15, height: 1.4),
               ),
             ),
+          const SizedBox(height: 8),
           Text(
-            '${displayData.cropName} – ${displayData.task.season}',
-            style: const TextStyle(color: Colors.grey),
+            'Loại cây: ${displayData.cropName} – Mùa vụ: ${displayData.task.season}',
+            style: TextStyle(
+                color: primaryTeal, fontWeight: FontWeight.w600, fontSize: 14),
           ),
-          const Divider(height: 24),
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 16),
           _infoRow(
-            icon: Icons.location_on,
+            icon: Icons.location_on_outlined,
             title: 'Địa điểm',
             value:
                 '${displayData.farmName} - ${displayData.plotName} - ${displayData.bedName}',
@@ -231,16 +262,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             value: _formatTaskDuration(displayData.task),
           ),
           _infoRow(
-            icon: Icons.person,
+            icon: Icons.person_outline,
             title: 'Người giao việc',
             value:
                 '${displayData.task.assignedBy} – ${displayData.task.assignedRole}',
-          ),
-          _infoRow(
-            icon: Icons.info,
-            title: 'Trạng thái',
-            value: _statusLabel(displayData.task.status),
-            valueColor: _statusColor(displayData.task.status),
           ),
         ],
       ),
@@ -256,7 +281,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         children: [
           const Text(
             'Cập nhật công việc hôm nay',
-            style: TextStyle(fontWeight: FontWeight.bold),
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.black87),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -264,16 +292,32 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             maxLines: 3,
             decoration: InputDecoration(
               hintText: 'Ví dụ: đã phun xong 2 luống đầu...',
+              hintStyle: TextStyle(color: Colors.grey.shade400),
+              filled: true,
+              fillColor: Colors.grey.shade50,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Colors.grey.shade200),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Colors.grey.shade200),
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: _showImageSourceActionSheet,
             icon: const Icon(Icons.camera_alt),
-            label: const Text('Thêm ảnh hiện trường'),
+            label: const Text('Thêm ảnh hiện trường',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: primaryTeal,
+              side: const BorderSide(color: primaryTeal, width: 1.5),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            ),
           ),
           const SizedBox(height: 12),
           _buildImageThumbnails(),
@@ -287,27 +331,35 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       children: [
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
-            minimumSize: const Size.fromHeight(48),
-            backgroundColor: Colors.teal,
+            minimumSize: const Size.fromHeight(56), // Nút to hơn
+            backgroundColor:
+                Colors.blue.shade600, // Đổi màu để phân biệt với nút Hoàn thành
+            foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
             ),
+            elevation: 0,
           ),
           onPressed: _saveUpdate,
           icon: const Icon(Icons.save),
-          label: const Text('Ghi nhận công việc'),
+          label: const Text('Ghi nhận cập nhật',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(height: 12),
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(48),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size.fromHeight(56),
+            backgroundColor: primaryTeal,
+            foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
             ),
+            elevation: 0,
           ),
           onPressed: _markAsCompleted,
           icon: const Icon(Icons.check_circle),
-          label: const Text('Đánh dấu hoàn thành'),
+          label: const Text('Đánh dấu hoàn thành',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ),
       ],
     );
@@ -372,8 +424,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return Wrap(
       spacing: 8,
       children: [
-        _chip(task.taskType, Colors.teal),
-        if (task.isUrgent) _chip('Khẩn cấp', Colors.redAccent),
+        _chip(task.taskType, primaryTeal),
+        if (task.isUrgent) _chip('Khẩn cấp', Colors.red),
       ],
     );
   }
@@ -396,18 +448,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  Widget _buildImage(TaskModel task) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Image.asset(
-        task.imageAsset,
-        width: 72,
-        height: 72,
-        fit: BoxFit.cover,
-      ),
-    );
-  }
-
   Widget _infoRow({
     required IconData icon,
     required String title,
@@ -419,22 +459,23 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.teal, size: 20),
-          const SizedBox(width: 8),
+          Icon(icon, color: primaryTeal, size: 22),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
                   style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: valueColor ?? Colors.black,
+                    fontWeight: FontWeight.bold,
+                    color: valueColor ?? Colors.black87,
+                    fontSize: 15,
                   ),
                 ),
               ],
@@ -448,40 +489,52 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   BoxDecoration _cardDecoration() {
     return BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(20),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.04),
-          blurRadius: 8,
+          color: Colors.black.withOpacity(0.05),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
         ),
       ],
     );
   }
 
-  String _statusLabel(TaskStatus status) {
+  Widget _buildStatusBadge(TaskStatus status) {
+    String text;
+    Color bg;
+    Color fg;
     switch (status) {
       case TaskStatus.doing:
-        return 'Đang thực hiện';
+        text = 'ĐANG LÀM';
+        bg = Colors.blue.shade50;
+        fg = Colors.blue.shade700;
+        break;
       case TaskStatus.pending:
-        return 'Chưa bắt đầu';
+        text = 'CẦN LÀM';
+        bg = Colors.orange.shade50;
+        fg = Colors.orange.shade700;
+        break;
       case TaskStatus.completed:
-        return 'Hoàn thành';
+        text = 'HOÀN THÀNH';
+        bg = Colors.green.shade50;
+        fg = Colors.green.shade700;
+        break;
       case TaskStatus.urgent:
-        return 'Khẩn cấp';
+        text = 'KHẨN CẤP';
+        bg = Colors.red.shade50;
+        fg = Colors.red.shade700;
+        break;
     }
-  }
 
-  Color _statusColor(TaskStatus status) {
-    switch (status) {
-      case TaskStatus.doing:
-        return Colors.teal;
-      case TaskStatus.pending:
-        return Colors.orange;
-      case TaskStatus.completed:
-        return Colors.green;
-      case TaskStatus.urgent:
-        return Colors.red;
-    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+      child: Text(text,
+          style:
+              TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: fg)),
+    );
   }
 
   void _saveUpdate() {

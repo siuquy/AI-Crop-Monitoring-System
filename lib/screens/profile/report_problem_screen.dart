@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-const Color primaryTeal = Color(0xFF1FCFC5);
+const Color primaryTeal = Color(0xFF4CAF50); // Xanh lá tươi
+const Color darkTeal = Color(0xFF388E3C); // Xanh lá đậm
+const Color bgColor = Color(0xFFF0F8F1); // Nền sáng ám xanh
 
 class ReportProblemScreen extends StatefulWidget {
   const ReportProblemScreen({super.key});
@@ -23,13 +25,14 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Báo lỗi / Góp ý'),
+        title: const Text('Báo lỗi / Góp ý',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 1,
+        foregroundColor: Colors.black87,
+        elevation: 0,
       ),
-      backgroundColor: const Color(0xFFF4F6F8),
+      backgroundColor: bgColor,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -49,10 +52,18 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
               style: TextStyle(color: Colors.grey, fontSize: 14, height: 1.5),
             ),
             const SizedBox(height: 32),
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
@@ -68,10 +79,18 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
                       value: _selectedType,
                       decoration: InputDecoration(
                         labelText: 'Loại vấn đề',
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(color: Colors.grey.shade200),
                         ),
-                        prefixIcon: const Icon(Icons.category_outlined),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        prefixIcon: const Icon(Icons.category_outlined,
+                            color: primaryTeal),
                       ),
                       items: const [
                         DropdownMenuItem(
@@ -94,8 +113,15 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
                         labelText: 'Mô tả chi tiết',
                         hintText:
                             'Xin vui lòng mô tả rõ vấn đề bạn đang gặp phải...',
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(color: Colors.grey.shade200),
                         ),
                         alignLabelWithHint: true,
                       ),
@@ -105,32 +131,30 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  // Xử lý gửi phản hồi
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Cảm ơn bạn đã gửi phản hồi!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                  Navigator.pop(context);
-                },
-                icon: const Icon(Icons.send_rounded),
-                label: const Text(
-                  'Gửi phản hồi',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryTeal,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            ElevatedButton.icon(
+              onPressed: () {
+                // Xử lý gửi phản hồi
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Cảm ơn bạn đã gửi phản hồi!'),
+                    backgroundColor: Colors.green,
                   ),
+                );
+                Navigator.pop(context);
+              },
+              icon: const Icon(Icons.send_rounded),
+              label: const Text(
+                'Gửi phản hồi',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size.fromHeight(56),
+                backgroundColor: primaryTeal,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
+                elevation: 0,
               ),
             ),
           ],

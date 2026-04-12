@@ -112,7 +112,8 @@ class _ReportListScreenState extends State<ReportListScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => ReportDetailScreen(report: report),
+                          builder: (context) =>
+                              ReportDetailScreen(report: report),
                         ),
                       );
                     }
@@ -166,6 +167,40 @@ class _ReportListItem extends StatelessWidget {
                   _StatusTag(status: report.status),
                 ],
               ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (report.reportNo != null && report.reportNo!.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.blue.shade100),
+                      ),
+                      child: Text(
+                        report.reportNo!,
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue.shade700,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  if (report.reportType != null &&
+                      report.reportType!.isNotEmpty)
+                    Text(
+                      'Loại: ${report.reportType}',
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                          fontWeight: FontWeight.w500),
+                    ),
+                ],
+              ),
               const SizedBox(height: 8),
               Text(
                 report.description ?? 'Không có mô tả.',
@@ -183,9 +218,14 @@ class _ReportListItem extends StatelessWidget {
                   const Icon(Icons.calendar_today_outlined,
                       size: 14, color: Colors.grey),
                   const SizedBox(width: 6),
-                  Text(
-                    DateFormat('dd/MM/yyyy HH:mm').format(report.createdAt),
-                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  Expanded(
+                    child: Text(
+                      report.submitDate != null
+                          ? 'Nộp: ${DateFormat('dd/MM/yyyy HH:mm').format(report.submitDate!.toLocal())}'
+                          : 'Tạo: ${DateFormat('dd/MM/yyyy HH:mm').format(report.createdAt.toLocal())}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 13),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -197,12 +237,15 @@ class _ReportListItem extends StatelessWidget {
                       const Icon(Icons.person_outline,
                           size: 14, color: Colors.grey),
                       const SizedBox(width: 6),
-                      Text('Người tạo: ${report.workerName}',
-                          style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                      Expanded(
+                        child: Text('Người tạo: ${report.workerName}',
+                            style: const TextStyle(
+                                color: Colors.grey, fontSize: 13),
+                            overflow: TextOverflow.ellipsis),
+                      ),
                     ],
                   ),
                 ),
-              
               if (report.status == ReportStatus.needsUpdate &&
                   report.ownerComment != null &&
                   report.ownerComment!.isNotEmpty)

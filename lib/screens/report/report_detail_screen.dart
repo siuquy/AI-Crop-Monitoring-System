@@ -4,6 +4,10 @@ import 'package:intl/intl.dart';
 import '../../models/report.dart';
 import '../../models/report_status.dart';
 
+const Color primaryTeal = Color(0xFF4CAF50);
+const Color darkTeal = Color(0xFF388E3C);
+const Color bgColor = Color(0xFFF0F8F1);
+
 class ReportDetailScreen extends StatelessWidget {
   final Report report;
 
@@ -53,12 +57,13 @@ class ReportDetailScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F8),
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Chi tiết báo cáo'),
+        title: const Text('Chi tiết báo cáo',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        foregroundColor: Colors.black87,
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -91,24 +96,18 @@ class ReportDetailScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Row(
+                  Wrap(
+                    spacing: 24,
+                    runSpacing: 8,
                     children: [
                       _buildMetaItem(Icons.calendar_today_rounded,
                           'Tạo: ${DateFormat('dd/MM/yyyy HH:mm').format(report.createdAt)}'),
-                      const SizedBox(width: 24),
                       _buildMetaItem(Icons.person_rounded,
                           report.workerName ?? 'Không xác định'),
                     ],
                   ),
-                  // Bỏ comment khối lệnh bên dưới SAU KHI bạn đã làm Bước 1 (Thêm updatedAt vào model Report)
-                  /*
-                  if (report.updatedAt != null) ...[
-                    const SizedBox(height: 10),
-                    _buildMetaItem(
-                        Icons.edit_calendar_rounded,
-                        'Cập nhật: ${DateFormat('dd/MM/yyyy HH:mm').format(report.updatedAt!)}'),
-                  ],
-                  */
+                  const SizedBox(height: 16),
+                  _buildGeneralInfoCard(),
                   const SizedBox(height: 24),
                   if (report.diseaseName != null &&
                       report.diseaseName!.isNotEmpty) ...[
@@ -159,11 +158,11 @@ class ReportDetailScreen extends StatelessWidget {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
-                          blurRadius: 10,
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 12,
                           offset: const Offset(0, 4),
                         )
                       ],
@@ -192,7 +191,7 @@ class ReportDetailScreen extends StatelessWidget {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: Colors.red.shade100),
                       ),
                       child: Row(
@@ -238,7 +237,7 @@ class ReportDetailScreen extends StatelessWidget {
             loadingProgress == null
                 ? child
                 : const Center(
-                    child: CircularProgressIndicator(color: Colors.teal)),
+                    child: CircularProgressIndicator(color: primaryTeal)),
         errorBuilder: (context, error, stackTrace) =>
             const Icon(Icons.broken_image, size: 64, color: Colors.grey),
       ),
@@ -247,15 +246,19 @@ class ReportDetailScreen extends StatelessWidget {
 
   Widget _buildMetaItem(IconData icon, String text) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 16, color: Colors.grey.shade500),
         const SizedBox(width: 6),
-        Text(
-          text,
-          style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade700,
-              fontWeight: FontWeight.w500),
+        Flexible(
+          child: Text(
+            text,
+            style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade700,
+                fontWeight: FontWeight.w500),
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ],
     );
@@ -272,7 +275,7 @@ class ReportDetailScreen extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
@@ -330,9 +333,9 @@ class ReportDetailScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.teal.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.teal.shade100),
+        color: primaryTeal.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: primaryTeal.withOpacity(0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,49 +345,134 @@ class ReportDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 12),
               child: Row(
                 children: [
-                  Icon(Icons.analytics_outlined, color: Colors.teal.shade700, size: 20),
+                  Icon(Icons.analytics_outlined, color: darkTeal, size: 20),
                   const SizedBox(width: 8),
-                  Text(
-                    'Độ tin cậy: ${(double.parse(confidence.toString()) * 100).toStringAsFixed(1)}%',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.teal.shade800,
+                  Expanded(
+                    child: Text(
+                      'Độ tin cậy: ${(double.parse(confidence.toString()) * 100).toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: darkTeal,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
           if (symptoms != null && symptoms.isNotEmpty) ...[
-            Text('Triệu chứng:', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.teal.shade900)),
+            Text('Triệu chứng:',
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87)),
             const SizedBox(height: 6),
             ...symptoms.map((s) => Padding(
                   padding: const EdgeInsets.only(bottom: 6, left: 8),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('• ', style: TextStyle(color: Colors.teal.shade800, fontWeight: FontWeight.bold)),
-                      Expanded(child: Text(s.toString(), style: TextStyle(color: Colors.teal.shade900, height: 1.4))),
+                      Text('• ',
+                          style: TextStyle(
+                              color: darkTeal, fontWeight: FontWeight.bold)),
+                      Expanded(
+                          child: Text(s.toString(),
+                              style: const TextStyle(
+                                  color: Colors.black87, height: 1.4))),
                     ],
                   ),
                 )),
             const SizedBox(height: 12),
           ],
           if (treatment != null && treatment.isNotEmpty) ...[
-            Text('Cách xử lý đề xuất:', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.teal.shade900)),
+            Text('Cách xử lý đề xuất:',
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87)),
             const SizedBox(height: 6),
             ...treatment.map((t) => Padding(
                   padding: const EdgeInsets.only(bottom: 6, left: 8),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('• ', style: TextStyle(color: Colors.teal.shade800, fontWeight: FontWeight.bold)),
-                      Expanded(child: Text(t.toString(), style: TextStyle(color: Colors.teal.shade900, height: 1.4))),
+                      Text('• ',
+                          style: TextStyle(
+                              color: darkTeal, fontWeight: FontWeight.bold)),
+                      Expanded(
+                          child: Text(t.toString(),
+                              style: const TextStyle(
+                                  color: Colors.black87, height: 1.4))),
                     ],
                   ),
                 )),
           ],
-          if (aiDesc != null && aiDesc.isNotEmpty && (symptoms == null || symptoms.isEmpty)) Text(aiDesc, style: TextStyle(color: Colors.teal.shade900, height: 1.5))
+          if (aiDesc != null &&
+              aiDesc.isNotEmpty &&
+              (symptoms == null || symptoms.isEmpty))
+            Text(aiDesc,
+                style: const TextStyle(color: Colors.black87, height: 1.5))
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGeneralInfoCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Thông tin chung',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87)),
+          const Divider(height: 24, color: Colors.black12),
+          _buildInfoRow('Mã báo cáo:', report.reportNo ?? 'Đang cập nhật'),
+          _buildInfoRow('Loại báo cáo:', report.reportType ?? 'Không xác định'),
+          _buildInfoRow('Người quản lý:', report.ownerName ?? 'Chưa phân công'),
+          _buildInfoRow(
+              'Ngày nộp:',
+              report.submitDate != null
+                  ? DateFormat('dd/MM/yyyy HH:mm')
+                      .format(report.submitDate!.toLocal())
+                  : 'Chưa cập nhật'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(label,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+          ),
+          Expanded(
+            child: Text(value,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                    fontSize: 14)),
+          ),
         ],
       ),
     );

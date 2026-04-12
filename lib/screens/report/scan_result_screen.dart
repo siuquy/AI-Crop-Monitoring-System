@@ -1,11 +1,10 @@
-// d:\code_mobile\flutter\acmms\lib\screens\report\scan_result_screen.dart
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../task/ai_service.dart';
+import '../../core/service/ai_service.dart';
 import '../../core/service/plantnet_api.dart';
-import 'create_report_screen.dart'; // Import màn hình tạo báo cáo
+import 'create_report_screen.dart';
+import '../../ai_result_widget.dart';
 
 class ScanResultScreen extends StatelessWidget {
   final File image;
@@ -35,74 +34,6 @@ class ScanResultScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Trích xuất các thông tin từ result (hỗ trợ cả PlantNet API và AI Service)
-    final String plantName = result['name']?.toString() ??
-        result['diseaseName']?.toString() ??
-        result['Tên bệnh']?.toString() ??
-        'Không rõ';
-    final String commonName = result['commonName'] ?? '';
-    final double confidence = result['confidence'] != null
-        ? (result['confidence'] as num).toDouble()
-        : 0.0;
-
-    // Khai thác triệt để các trường dữ liệu AI trả về để đảm bảo luôn có nội dung
-    String aiDesc = result['description']?.toString() ??
-        result['Description']?.toString() ??
-        '';
-    final symptoms = result['symptoms'] as List<dynamic>? ?? [];
-    final treatment = result['treatment'] as List<dynamic>? ?? [];
-
-    StringBuffer descBuffer = StringBuffer();
-    if (aiDesc.trim().isNotEmpty) {
-      descBuffer.writeln(aiDesc.trim());
-    }
-    if (symptoms.isNotEmpty) {
-      descBuffer.writeln('\n* Triệu chứng:');
-      for (var s in symptoms) descBuffer.writeln('  - $s');
-    }
-    if (treatment.isNotEmpty) {
-      descBuffer.writeln('\n* Cách xử lý:');
-      for (var t in treatment) descBuffer.writeln('  - $t');
-    }
-
-    // Vét cạn BẤT KỲ key nào khác mà AI trả về (ngay cả khi đã có symptoms)
-    final knownKeys = [
-      'isHealthy',
-      'confidence',
-      'diseaseName',
-      'name',
-      'commonName',
-      'description',
-      'Description',
-      'symptoms',
-      'treatment'
-    ];
-    result.forEach((key, value) {
-      if (!knownKeys.contains(key) && value != null) {
-        if (value is List) {
-          if (value.isNotEmpty) {
-            descBuffer.writeln('\n* $key:');
-            for (var item in value) descBuffer.writeln('  - $item');
-          }
-        } else if (value.toString().trim().isNotEmpty) {
-          descBuffer.writeln('\n* $key: $value');
-        }
-      }
-    });
-
-    String description = descBuffer.toString().trim();
-    if (description.isEmpty) {
-      bool isHealthy = result['isHealthy'] == true ||
-          plantName.toLowerCase().contains('khỏe mạnh');
-      if (isHealthy) {
-        description =
-            'Cây trồng có vẻ khỏe mạnh. Không phát hiện dấu hiệu bất thường nào trên hình ảnh.';
-      } else {
-        description =
-            'Đã nhận diện được bệnh nhưng chưa có mô tả chi tiết từ AI. Vui lòng kiểm tra lại hình ảnh hoặc thử chụp từ góc độ rõ nét hơn.';
-      }
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("Chi tiết kết quả quét"),
@@ -115,7 +46,6 @@ class ScanResultScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1. Hiển thị ảnh đã quét
             Stack(
               alignment: Alignment.bottomRight,
               children: [
@@ -138,90 +68,48 @@ class ScanResultScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 20),
-
-            // 2. Thông tin vị trí
             _buildSection(
               title: "Vị trí",
               content: "$farmName > $plotName > $bedName",
               icon: Icons.location_on,
               color: Colors.blueGrey,
             ),
-            const SizedBox(height: 16),
-
-            // 3. Kết quả nhận diện (Tên, độ tin cậy)
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.analytics, color: Color(0xFF1FCFC5)),
-                        SizedBox(width: 8),
-                        Text(
-                          "Kết quả phân tích",
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 24),
-                    _buildInfoRow("Tên/Bệnh:", plantName, isBold: true),
-                    if (commonName.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      _buildInfoRow("Tên thông thường:", commonName),
-                    ],
-                    const SizedBox(height: 8),
-                    _buildInfoRow(
-                      "Độ tin cậy:",
-                      "${(confidence * 100).toStringAsFixed(1)}%",
-                      valueColor: Colors.green,
-                      isBold: true,
-                    ),
-                  ],
-                ),
+            const SizedBox(height: 20),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  )
+                ],
+                border: Border.all(color: Colors.purple.shade100),
               ),
-            ),
-            const SizedBox(height: 16),
-
-            // 4. Field mô tả tình trạng cây
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.info_outline, color: Colors.orange),
-                        SizedBox(width: 8),
-                        Text(
-                          "Mô tả tình trạng cây",
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.auto_awesome_rounded,
+                          color: Colors.purple.shade600, size: 22),
+                      const SizedBox(width: 8),
+                      const Text('Phân tích chi tiết từ AI',
                           style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 24),
-                    Text(
-                      description,
-                      style: const TextStyle(
-                          fontSize: 15, height: 1.5, color: Colors.black87),
-                    ),
-                  ],
-                ),
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87)),
+                    ],
+                  ),
+                  const Divider(height: 24),
+                  AiResultWidget(aiData: result),
+                ],
               ),
             ),
             const SizedBox(height: 32),
-
-            // 5. Hai nút hành động
             Row(
               children: [
                 Expanded(
@@ -247,7 +135,6 @@ class ScanResultScreen extends StatelessWidget {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      // Chuyển sang màn hình tạo báo cáo với dữ liệu đã được scan
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -323,33 +210,6 @@ class ScanResultScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow(String label, String value,
-      {Color? valueColor, bool isBold = false}) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 15, color: Colors.black54),
-          ),
-        ),
-        Expanded(
-          flex: 3,
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 15,
-              color: valueColor ?? Colors.black87,
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   void _showRetryMenu(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -382,9 +242,9 @@ class ScanResultScreen extends StatelessWidget {
     final picker = ImagePicker();
     final XFile? pickedFile = await picker.pickImage(
       source: source,
-      imageQuality: 70, // Giảm chất lượng ảnh xuống 70%
-      maxWidth: 1080, // Giới hạn độ phân giải tối đa (chiều rộng)
-      maxHeight: 1080, // Giới hạn độ phân giải tối đa (chiều cao)
+      imageQuality: 70,
+      maxWidth: 1080,
+      maxHeight: 1080,
     );
     if (pickedFile == null) return;
 
@@ -410,12 +270,17 @@ class ScanResultScreen extends StatelessWidget {
     );
 
     try {
-      // Tạm thời vô hiệu hóa Gemini, chỉ dùng API PlantNet
-      final result = await PlantNetApi.detectPlant(File(pickedFile.path));
-      if (!context.mounted) return;
-      Navigator.pop(context); // Đóng dialog loading
+      Map<String, dynamic> result;
+      final file = File(pickedFile.path);
 
-      // Thay thế màn hình hiện tại bằng màn hình kết quả mới
+      try {
+        result = await AIService.analyzePlantImage(file);
+      } catch (e) {
+        throw Exception('Lỗi phân tích từ AI: $e');
+      }
+
+      if (!context.mounted) return;
+      Navigator.pop(context);
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -435,7 +300,7 @@ class ScanResultScreen extends StatelessWidget {
       );
     } catch (e) {
       if (!context.mounted) return;
-      Navigator.pop(context); // Đóng dialog loading
+      Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Lỗi phân tích: $e')),
       );

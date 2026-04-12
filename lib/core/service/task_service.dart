@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'api_client.dart';
 
 class TaskService {
-  /// Lấy danh sách tất cả các công việc từ API /api/Tasks
   static Future<List<dynamic>> getAllTasks() async {
     try {
       final response = await ApiClient.instance.get('/api/Tasks');
@@ -18,7 +17,6 @@ class TaskService {
     }
   }
 
-  /// Lấy danh sách chi tiết công việc từ API /api/TaskDetails
   static Future<List<dynamic>> getAllTaskDetails() async {
     try {
       final response = await ApiClient.instance.get('/api/TaskDetails');
@@ -38,7 +36,6 @@ class TaskService {
     return getTaskList();
   }
 
-  /// Lấy danh sách toàn bộ TaskModel (kết hợp Task và TaskDetail)
   static Future<List<TaskModel>> getTaskList() async {
     try {
       final results = await Future.wait([
@@ -68,7 +65,7 @@ class TaskService {
           seasonId: detail?['seasonId'] ?? '',
           bedIds: bedIds,
           bed: firstBedId,
-          taskType: 'Chăm sóc', // Cấu hình mặc định do API chưa có
+          taskType: 'Chăm sóc',
           isUrgent: task['taskStatus']?.toString().toLowerCase() == 'urgent',
           imageAsset: 'assets/monitoring.jpg',
           assignedBy: 'Quản lý',
@@ -97,14 +94,12 @@ class TaskService {
       final tasks = results[0];
       final taskDetails = results[1];
 
-      // Tìm Task
       final task =
           tasks.firstWhere((t) => t['taskId'] == taskId, orElse: () => null);
       if (task == null) {
         throw ApiException('Không tìm thấy công việc với ID: $taskId');
       }
 
-      // Tìm TaskDetail tương ứng
       final detail = taskDetails.firstWhere((d) => d['taskId'] == taskId,
           orElse: () => null);
 

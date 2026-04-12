@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-const Color primaryTeal = Color(0xFF1FCFC5);
-const Color darkGreen = Color(0xFF2E7D32);
-const Color lightGreenBg = Color(0xFFE8F5E9);
+const Color primaryTeal = Color(0xFF4CAF50); // Xanh lá tươi
+const Color darkTeal = Color(0xFF388E3C); // Xanh lá đậm
+const Color bgColor = Color(0xFFF0F8F1); // Nền sáng ám xanh
 
 class HelpScreen extends StatelessWidget {
   const HelpScreen({super.key});
@@ -10,10 +10,14 @@ class HelpScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F6F9),
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Hướng dẫn sử dụng'),
+        title: const Text('Hướng dẫn sử dụng',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
+        elevation: 0,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -78,16 +82,16 @@ class HelpScreen extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [darkGreen, Colors.green.shade600],
+          colors: [primaryTeal, darkTeal],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: darkGreen.withOpacity(0.3),
+            color: primaryTeal.withOpacity(0.3),
             blurRadius: 10,
-            offset: const Offset(0, 5),
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -168,15 +172,15 @@ class HelpScreen extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 border: Border(
                   left: BorderSide(color: color, width: 5),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.07),
+                    color: Colors.black.withOpacity(0.04),
                     blurRadius: 10,
-                    offset: const Offset(2, 4),
+                    offset: const Offset(0, 4),
                   )
                 ],
               ),
@@ -214,7 +218,7 @@ class HelpScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
       margin: const EdgeInsets.only(top: 16),
       decoration: BoxDecoration(
-        color: lightGreenBg,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
@@ -222,7 +226,7 @@ class HelpScreen extends StatelessWidget {
           const Icon(
             Icons.support_agent_rounded,
             size: 40,
-            color: darkGreen,
+            color: darkTeal,
           ),
           const SizedBox(height: 12),
           const Text(
@@ -230,7 +234,7 @@ class HelpScreen extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 18,
-              color: darkGreen,
+              color: darkTeal,
             ),
           ),
           const SizedBox(height: 8),

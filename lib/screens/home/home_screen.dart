@@ -119,7 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Color _mapColor(TaskStatus status) {
     switch (status) {
       case TaskStatus.doing:
-        return primaryTeal;
+        return Colors.blue.shade600; 
       case TaskStatus.completed:
         return Colors.green;
       case TaskStatus.urgent:
@@ -140,35 +140,54 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: bgColor,
-      body: SafeArea(
-        child: RefreshIndicator(
-          color: primaryTeal,
-          onRefresh: () => _loadAll(forceRefresh: true),
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _Header(worker: _currentWorker),
-                const SizedBox(height: 16),
-
-                const _WeatherCard(),
-                const SizedBox(height: 20),
-
-                _TaskSummary(todo: todo, doing: doing, done: done),
-                const SizedBox(height: 20),
-
-                const Text(
-                  'Nhiệm vụ hôm nay',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+      body: RefreshIndicator(
+        color: primaryTeal,
+        onRefresh: () => _loadAll(forceRefresh: true),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 120),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: EdgeInsets.fromLTRB(
+                    20, MediaQuery.of(context).padding.top + 20, 20, 28),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [primaryTeal, darkTeal],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius:
+                      BorderRadius.vertical(bottom: Radius.circular(32)),
                 ),
-                const SizedBox(height: 12),
-
-                // TASK LIST
-                _buildTaskList(),
-              ],
-            ),
+                child: Column(
+                  children: [
+                    _Header(worker: _currentWorker),
+                    const SizedBox(height: 24),
+                    const _WeatherCard(),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _TaskSummary(todo: todo, doing: doing, done: done),
+                    const SizedBox(height: 32),
+                    const Text('Nhiệm vụ hôm nay',
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87)),
+                    const SizedBox(height: 16),
+                    _buildTaskList(),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -269,29 +288,29 @@ class _TaskItemSkeletonState extends State<_TaskItemSkeleton>
     return FadeTransition(
       opacity: _animation,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(14),
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
                 color: Colors.grey[200],
                 shape: BoxShape.circle,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                      height: 14,
+                      height: 16,
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: Colors.grey[200],
@@ -300,21 +319,20 @@ class _TaskItemSkeletonState extends State<_TaskItemSkeleton>
                   const SizedBox(height: 8),
                   Container(
                       height: 12,
-                      width: 160,
+                      width: 140,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(6),
+                      )),
+                  const SizedBox(height: 8),
+                  Container(
+                      height: 12,
+                      width: 100,
                       decoration: BoxDecoration(
                         color: Colors.grey[200],
                         borderRadius: BorderRadius.circular(6),
                       )),
                 ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Container(
-              width: 70,
-              height: 28,
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(20),
               ),
             ),
           ],
@@ -337,12 +355,12 @@ class _Header extends StatelessWidget {
     return Row(
       children: [
         CircleAvatar(
-          radius: 22,
+          radius: 26, // Tăng kích thước avatar
           backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
               ? NetworkImage(avatarUrl)
               : const AssetImage('assets/avatar.png') as ImageProvider,
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,24 +368,16 @@ class _Header extends StatelessWidget {
               Text(
                 'Chào buổi sáng, $workerName!',
                 style: const TextStyle(
-                    fontSize: 16.5, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 4),
-              const Row(
-                children: [
-                  Icon(Icons.location_on, size: 14, color: Colors.grey),
-                  SizedBox(width: 4),
-                  Text(
-                    'TP. Hồ Chí Minh, District 6',
-                    style: TextStyle(fontSize: 12.5, color: Colors.grey),
-                  ),
-                ],
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white),
               ),
             ],
           ),
         ),
         IconButton(
-          icon: const Icon(Icons.notifications_none),
+          icon: const Icon(Icons.notifications_active_outlined,
+              color: Colors.white, size: 28),
           onPressed: () {
             Navigator.push(
               context,
@@ -447,14 +457,15 @@ class _WeatherCardState extends State<_WeatherCard> {
     final iconUrl = 'https://openweathermap.org/img/wn/$iconCode@2x.png';
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [primaryTeal, darkTeal]),
-        borderRadius: BorderRadius.circular(18),
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.2)),
       ),
       child: Row(
         children: [
-          Image.network(iconUrl, width: 50, height: 50),
+          Image.network(iconUrl, width: 56, height: 56),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -464,12 +475,13 @@ class _WeatherCardState extends State<_WeatherCard> {
                   '$temperature°C - ${description[0].toUpperCase()}${description.substring(1)}',
                   style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 17,
                       fontWeight: FontWeight.bold),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   cityName,
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
               ],
             ),
@@ -491,13 +503,14 @@ class _WeatherCardState extends State<_WeatherCard> {
 
   Widget _buildLoadingOrErrorCard(Widget content) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [primaryTeal, darkTeal]),
-        borderRadius: BorderRadius.circular(18),
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.2)),
       ),
       child: SizedBox(
-        height: 70, // Chiều cao cố định để tránh nhảy layout
+        height: 80, // Chiều cao cố định để tránh nhảy layout
         child: Center(child: content),
       ),
     );
@@ -522,8 +535,12 @@ class _WeatherInfo extends StatelessWidget {
         Icon(icon, size: 14, color: Colors.white70),
         const SizedBox(width: 4),
         Text('$label: ',
-            style: const TextStyle(color: Colors.white70, fontSize: 12)),
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 12)),
+            style: const TextStyle(color: Colors.white70, fontSize: 13)),
+        Text(value,
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -544,9 +561,14 @@ class _TaskSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _SummaryItem('Cần làm', '$todo', Colors.orange),
-        _SummaryItem('Đang làm', '$doing', primaryTeal),
-        _SummaryItem('Hoàn thành', '$done', Colors.green),
+        _SummaryItem('Cần làm', '$todo', Colors.orange.shade600,
+            Icons.assignment_outlined),
+        const SizedBox(width: 12),
+        _SummaryItem(
+            'Đang làm', '$doing', Colors.blue.shade600, Icons.autorenew),
+        const SizedBox(width: 12),
+        _SummaryItem(
+            'Hoàn thành', '$done', primaryTeal, Icons.check_circle_outline),
       ],
     );
   }
@@ -556,28 +578,45 @@ class _SummaryItem extends StatelessWidget {
   final String title;
   final String value;
   final Color color;
+  final IconData icon;
 
-  const _SummaryItem(this.title, this.value, this.color);
+  const _SummaryItem(this.title, this.value, this.color, this.icon);
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border(bottom: BorderSide(color: color, width: 3)),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4)),
+          ],
         ),
         child: Column(
           children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                  color: color.withOpacity(0.12), shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: 26),
+            ),
+            const SizedBox(height: 12),
             Text(value,
                 style: TextStyle(
-                    color: color, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
+                    color: Colors.black87,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
             Text(title,
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -608,46 +647,92 @@ class _TaskItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(14),
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4)),
+          ],
         ),
         child: Row(
           children: [
-            CircleAvatar(
-              backgroundColor: color.withOpacity(0.15),
-              child: Icon(icon, color: color),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                  color: color.withOpacity(0.12), shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: 28),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                      style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_outlined,
+                          size: 14, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          location,
+                          style:
+                              const TextStyle(fontSize: 13, color: Colors.grey),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 4),
-                  Text(
-                    '$location • $time',
-                    style: const TextStyle(fontSize: 12.5, color: Colors.grey),
+                  Row(
+                    children: [
+                      const Icon(Icons.access_time,
+                          size: 14, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text(
+                        time,
+                        style:
+                            const TextStyle(fontSize: 13, color: Colors.grey),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                status,
-                style: TextStyle(
-                    fontSize: 12, color: color, fontWeight: FontWeight.w600),
-              ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(status,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: color,
+                          fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(height: 12),
+                const Icon(Icons.arrow_forward_ios,
+                    size: 16, color: Colors.grey),
+              ],
             ),
           ],
         ),

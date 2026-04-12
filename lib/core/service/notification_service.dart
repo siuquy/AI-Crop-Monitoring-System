@@ -11,13 +11,10 @@ class NotificationService {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
-  // Tạo một Stream để phát tín hiệu khi người dùng click vào thông báo
   static final StreamController<String?> selectNotificationStream =
       StreamController<String?>.broadcast();
 
-  /// Khởi tạo cấu hình cho Local Notification (Nên gọi ở hàm main.dart)
   static Future<void> initialize() async {
-    // Khởi tạo timezone để dùng chức năng hẹn giờ
     tz.initializeTimeZones();
 
     const AndroidInitializationSettings androidSettings =
@@ -34,12 +31,10 @@ class NotificationService {
     await _notificationsPlugin.initialize(
       settings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        // Khi click vào thông báo, đẩy payload (taskId) vào Stream
         selectNotificationStream.add(response.payload);
       },
     );
 
-    // Xin quyền hiển thị thông báo trên thiết bị thật (Đặc biệt cho Android 13+ và iOS)
     if (Platform.isAndroid) {
       await _notificationsPlugin
           .resolvePlatformSpecificImplementation<
@@ -53,15 +48,14 @@ class NotificationService {
     }
   }
 
-  /// Lên lịch thông báo nhắc nhở công việc (Nhắc trước 15 phút)
   static Future<void> scheduleTaskNotification(TaskModel task) async {
     if (task.startDate == null) return;
 
     final scheduledTime = task.startDate!.subtract(const Duration(minutes: 15));
-    if (scheduledTime.isBefore(DateTime.now())) return; // Đã qua giờ nhắc nhở
+    if (scheduledTime.isBefore(DateTime.now())) return;
 
     await _notificationsPlugin.zonedSchedule(
-      task.id.hashCode, // Tạo ID duy nhất cho thông báo từ ID của Task
+      task.id.hashCode,
       'Sắp đến giờ làm việc!',
       'Công việc "${task.title}" sẽ bắt đầu lúc ${task.startDate!.hour}:${task.startDate!.minute.toString().padLeft(2, '0')}.',
       tz.TZDateTime.from(scheduledTime, tz.local),
@@ -77,11 +71,10 @@ class NotificationService {
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
-      payload: task.id, // Truyền ID công việc vào payload để mở đúng màn hình
+      payload: task.id,
     );
   }
 
-  /// Hiển thị thông báo ngay lập tức trên điện thoại thật
   static Future<void> showImmediateNotification({
     required int id,
     required String title,
@@ -95,7 +88,7 @@ class NotificationService {
       channelDescription: 'Kênh cho các thông báo hiển thị ngay lập tức',
       importance: Importance.max,
       priority: Priority.high,
-      icon: '@mipmap/ic_launcher', // Icon của app
+      icon: '@mipmap/ic_launcher',
     );
 
     const NotificationDetails details = NotificationDetails(
@@ -105,17 +98,11 @@ class NotificationService {
   }
 
   static Future<List<NotificationModel>> getNotifications() async {
-    // Ứng dụng sử dụng Local Push Notification, không gọi API backend.
-    // Trả về dữ liệu thông báo được lưu ở local (hiện tại là dữ liệu giả).
-    // Gợi ý: Về sau bạn có thể kết hợp với SQflite hoặc SharedPreferences để lưu thông báo thật.
-
-    await Future.delayed(
-        const Duration(milliseconds: 500)); // Giả lập độ trễ tải dữ liệu
+    await Future.delayed(const Duration(milliseconds: 500));
 
     return _getMockNotifications();
   }
 
-  // Dữ liệu giả để minh họa
   static List<NotificationModel> _getMockNotifications() {
     return [
       NotificationModel(

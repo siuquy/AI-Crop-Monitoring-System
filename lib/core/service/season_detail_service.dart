@@ -1,7 +1,6 @@
 import 'api_client.dart';
 
 class SeasonDetailService {
-  /// Lấy danh sách Chi tiết mùa vụ và map theo seasonDetailId
   static Future<Map<String, Map<String, dynamic>>> getSeasonDetailMap() async {
     try {
       final response = await ApiClient.instance.get('/api/seasons-details');
@@ -12,8 +11,6 @@ class SeasonDetailService {
           response['data'] is List) {
         for (var item in response['data']) {
           if (item is Map) {
-            // Sử dụng seasonDetailId làm key để không bị ghi đè dữ liệu
-            // (do 1 seasonId có thể có nhiều seasonDetail khác nhau cho các bed/crop)
             final key = item['seasonDetailId']?.toString() ??
                 item['seasonId']?.toString();
             if (key != null) {
@@ -30,7 +27,6 @@ class SeasonDetailService {
     }
   }
 
-  /// Lấy danh sách Chi tiết mùa vụ và nhóm theo seasonId
   static Future<Map<String, List<Map<String, dynamic>>>>
       getSeasonDetailsGroupedBySeasonId() async {
     try {

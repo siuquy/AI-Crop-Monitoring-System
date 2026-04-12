@@ -1,44 +1,53 @@
 import 'dart:io';
-import 'api_client.dart'; // Import ApiClient của hệ thống
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class PlantNetApi {
+  static const String _baseUrl = 'https://my-api.plantnet.org/v2/identify/all';
+
   static Future<Map<String, dynamic>> detectPlant(File imageFile) async {
     try {
-      print('Sending request to Backend PlantNet API...');
+      final String apiKey = dotenv.env['PLANTNET_API_KEY'] ?? '';
+      final uri = Uri.parse('$_baseUrl?api-key=$apiKey');
+      final request = http.MultipartRequest('POST', uri);
 
-      // Gọi qua API backend thay vì gọi trực tiếp PlantNet API
-      final response = await ApiClient.instance.postMultipart(
-        '/api/PlantNet/identify', // Endpoint nội bộ
-        file: imageFile,
-        fileField: 'image', // Theo như cấu hình của backend C# là "image"
-        fields: {
-          'organ': 'auto', // Theo như cấu hình của backend C# là "organ"
-        },
+      request.fields['organs'] = 'auto';
+
+      final ext = imageFile.path.split('.').last.toLowerCase();
+      MediaType contentType = MediaType('image', 'jpeg');
+      if (ext == 'png') {
+        contentType = MediaType('image', 'png');
+      } else if (ext == 'webp') {
+        contentType = MediaType('image', 'webp');
+      }
+
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'images',
+          imageFile.path,
+          contentType: contentType,
+        ),
       );
 
-      // ApiClient đã handle response JSON cho ta, và backend bọc bằng { "success": true, "data": ... }
-      if (response != null && response['success'] == true) {
-        final data = response['data'];
-        final List<dynamic>? results = data?['results'];
+      final streamedResponse =
+          await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+      final data = jsonDecode(response.body);
 
-        if (data != null && data['remainingRequests'] == 0) {
-          throw Exception(
-              'API PlantNet đã hết lượt truy cập trong ngày (Quota exceeded).');
-        }
-
-        if (results != null && results.isNotEmpty) {
+      if (response.statusCode == 200 && data['results'] != null) {
+        final List<dynamic> results = data['results'];
+        if (results.isNotEmpty) {
           final bestMatch = results.first;
           final species = bestMatch['species'];
-
           final String scientificName =
-              species['scientificNameWithoutAuthor'] ?? 'Unknown Species';
-
+              species['scientificNameWithoutAuthor'] ?? 'Không rõ';
           final List<dynamic>? commonNamesList = species['commonNames'];
           final String commonName =
               (commonNamesList != null && commonNamesList.isNotEmpty)
                   ? commonNamesList.first.toString()
-                  : 'No common name available';
-
+                  : 'Không có tên thông thường';
           final double confidence = (bestMatch['score'] ?? 0.0).toDouble();
 
           return {
@@ -46,22 +55,17 @@ class PlantNetApi {
             'commonName': commonName,
             'confidence': confidence,
           };
-        } else {
-          throw Exception(
-              'Không nhận diện được cây trồng trong ảnh. Vui lòng chụp hình ảnh rõ nét hơn và thử lại.');
         }
-      } else {
+      } else if (response.statusCode == 404) {
         throw Exception(
-            'Failed to identify plant. Server response was not successful.');
+            'Không nhận diện được cây trồng. Vui lòng chụp rõ lá, hoa hoặc quả của cây.');
+      } else if (response.statusCode == 429) {
+        throw Exception('API PlantNet đã hết lượt truy cập trong ngày.');
       }
-    } on ApiException catch (e) {
-      // Catch từ Exception của ApiClient
-      print('ApiException occurred: ${e.message}');
-      rethrow;
+
+      throw Exception('Lỗi hệ thống AI (Mã lỗi: ${response.statusCode}).');
     } catch (e) {
-      print('Unexpected error: $e');
-      throw Exception(
-          'An unexpected error occurred while identifying the plant: $e');
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
 }

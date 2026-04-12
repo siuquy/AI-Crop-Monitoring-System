@@ -2,7 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/service/plantnet_api.dart';
-import '../../core/service/scan_history_service.dart'; // Import service lịch sử
+import '../../core/service/ai_service.dart';
+import '../../core/service/scan_history_service.dart';
 import 'scan_result_screen.dart';
 
 class CameraScanScreen extends StatefulWidget {
@@ -43,12 +44,11 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
   Future<void> _pickImage({ImageSource source = ImageSource.camera}) async {
     final XFile? pickedFile = await _picker.pickImage(
       source: source,
-      imageQuality: 70, // Giảm chất lượng ảnh xuống 70%
-      maxWidth: 1080, // Giới hạn độ phân giải tối đa (chiều rộng)
-      maxHeight: 1080, // Giới hạn độ phân giải tối đa (chiều cao)
+      imageQuality: 70,
+      maxWidth: 1080,
+      maxHeight: 1080,
     );
 
-    // Nếu người dùng hủy chọn ảnh, kiểm tra nếu chưa có ảnh nào thì quay lại
     if (pickedFile == null) {
       if (_image == null && mounted) Navigator.of(context).pop();
       return;
@@ -57,13 +57,12 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
     if (mounted) {
       setState(() {
         _image = File(pickedFile.path);
-        _result = null; // Clear old result when new image is picked
+        _result = null;
       });
     }
   }
 
   Future<void> _detectPlant() async {
-    // If no image → show SnackBar
     if (_image == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -72,28 +71,43 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
       return;
     }
 
-    // Show loading indicator
     setState(() {
       _isLoading = true;
     });
 
     try {
-      Map<String, dynamic> result;
+      Map<String, dynamic> result = {};
 
-      // Tạm thời vô hiệu hóa Gemini, chỉ dùng API PlantNet
-      result = await PlantNetApi.detectPlant(_image!);
+      try {
+        result = await PlantNetApi.detectPlant(_image!);
+      } catch (e) {
+        debugPrint('PlantNet báo lỗi: $e');
+      }
 
-      // Lưu lại lịch sử quét xuống máy
+      if (result.isNotEmpty) {
+        try {
+          final plantName = result['commonName'] != 'Không có tên thông thường'
+              ? result['commonName']
+              : result['name'];
+          final extraInfo =
+              await AIService.generateDescriptionForPlant(plantName.toString());
+          result.addAll(extraInfo);
+        } catch (e) {
+          debugPrint('Lỗi sinh mô tả bằng AI: $e');
+        }
+      } else {
+        debugPrint('Đang chuyển sang Gemini AI phân tích ảnh...');
+        result = await AIService.analyzePlantImage(_image!);
+      }
+
       await ScanHistoryService.saveScan(_image!.path, result);
 
       if (mounted) {
-        // Where result is updated
         setState(() {
           _result = result;
         });
       }
     } catch (e) {
-      // Catch exception from API and show SnackBar
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
@@ -117,7 +131,6 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // --- Image Preview Section ---
             if (_image != null)
               Column(
                 children: [
@@ -156,13 +169,11 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                 child: const Center(child: Text("Đang mở camera...")),
               ),
             const SizedBox(height: 20),
-
-            // --- Detect Button Section ---
             ElevatedButton(
               onPressed: _isLoading ? null : _detectPlant,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: const Color(0xFF1FCFC5), // primaryTeal
+                backgroundColor: const Color(0xFF1FCFC5),
                 foregroundColor: Colors.white,
               ),
               child: _isLoading
@@ -176,8 +187,6 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                       style: TextStyle(fontSize: 16)),
             ),
             const SizedBox(height: 24),
-
-            // --- Result Section ---
             if (_result != null) ...[
               const Text("Kết quả phân tích:",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -231,7 +240,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                 },
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: const Color(0xFF1FCFC5), // primaryTeal
+                  backgroundColor: const Color(0xFF1FCFC5),
                   foregroundColor: Colors.white,
                 ),
                 child: const Text("Xem chi tiết kết quả",

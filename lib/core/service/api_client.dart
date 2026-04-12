@@ -4,8 +4,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
-// Định nghĩa một lớp Exception chung cho toàn bộ ứng dụng
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
@@ -132,15 +132,13 @@ class ApiClient {
   Future<dynamic> postMultipart(
     String path, {
     Map<String, String>? fields,
-    File? file,
+    List<File>? files,
     String fileField = 'file',
   }) async {
     final uri = _buildUri(path);
     _log('POST (Multipart) $uri');
     try {
       final request = http.MultipartRequest('POST', uri);
-      // For multipart requests, we should not set Content-Type manually.
-      // The http package does this for us with the correct boundary.
       final headers = _getHeaders();
       headers.remove('Content-Type');
       request.headers.addAll(headers);
@@ -149,13 +147,24 @@ class ApiClient {
         request.fields.addAll(fields);
       }
 
-      if (file != null) {
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            fileField,
-            file.path,
-          ),
-        );
+      if (files != null && files.isNotEmpty) {
+        for (var file in files) {
+          final ext = file.path.split('.').last.toLowerCase();
+          MediaType contentType = MediaType('image', 'jpeg');
+          if (ext == 'png') {
+            contentType = MediaType('image', 'png');
+          } else if (ext == 'webp') {
+            contentType = MediaType('image', 'webp');
+          }
+
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              fileField,
+              file.path,
+              contentType: contentType,
+            ),
+          );
+        }
       }
 
       final streamedResponse = await request.send().timeout(_timeout);
@@ -185,8 +194,6 @@ class ApiClient {
     _log('PUT (Multipart) $uri');
     try {
       final request = http.MultipartRequest('PUT', uri);
-      // For multipart requests, we should not set Content-Type manually.
-      // The http package does this for us with the correct boundary.
       final headers = _getHeaders();
       headers.remove('Content-Type');
       request.headers.addAll(headers);
@@ -196,10 +203,19 @@ class ApiClient {
       }
 
       if (file != null) {
+        final ext = file.path.split('.').last.toLowerCase();
+        MediaType contentType = MediaType('image', 'jpeg');
+        if (ext == 'png') {
+          contentType = MediaType('image', 'png');
+        } else if (ext == 'webp') {
+          contentType = MediaType('image', 'webp');
+        }
+
         request.files.add(
           await http.MultipartFile.fromPath(
             fileField,
             file.path,
+            contentType: contentType,
           ),
         );
       }
@@ -236,20 +252,17 @@ class ApiClient {
         try {
           final errorJson = jsonDecode(response.body);
           if (errorJson is Map<String, dynamic>) {
-            // Cố gắng tìm thông báo lỗi trong các key phổ biến
             errorMessage = errorJson['message'] ??
                 errorJson['title'] ??
                 errorJson['error'] ??
                 errorMessage;
           }
         } catch (e) {
-          // Body không phải là JSON, nhưng vẫn có thể chứa thông tin lỗi dạng text
           _log(
               'Không thể phân tích body của lỗi dưới dạng JSON. Body: ${response.body}');
         }
       }
 
-      // Bắt riêng các mã lỗi phân quyền phổ biến
       if (response.statusCode == 403) {
         errorMessage =
             'Tài khoản không có quyền truy cập dữ liệu này (Lỗi 403). Vui lòng đăng nhập bằng tài khoản Quản lý.';

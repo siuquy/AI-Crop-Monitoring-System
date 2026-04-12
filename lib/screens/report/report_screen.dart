@@ -10,7 +10,9 @@ import 'package:intl/intl.dart';
 
 import '../../core/service/report_service.dart';
 
-const Color primaryTeal = Color(0xFF1FCFC5);
+const Color primaryTeal = Color(0xFF4CAF50); // Xanh lá tươi
+const Color darkTeal = Color(0xFF388E3C); // Xanh lá đậm
+const Color bgColor = Color(0xFFF0F8F1); // Nền sáng ám xanh
 
 class ReportScreen extends StatefulWidget {
   const ReportScreen({super.key});
@@ -123,26 +125,24 @@ class _ReportScreenState extends State<ReportScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F8),
+      backgroundColor: bgColor,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
         automaticallyImplyLeading: false,
-        titleSpacing: 0,
-        title: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'Danh sách Báo cáo AI',
-            style: TextStyle(
-              color: Colors.black,
-              fontWeight: FontWeight.bold,
-              fontSize: 22,
-            ),
+        centerTitle: true,
+        title: const Text(
+          'Lịch sử Báo cáo',
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.calendar_month_outlined, color: primaryTeal),
+            icon: const Icon(Icons.calendar_month_outlined,
+                color: primaryTeal, size: 28),
             onPressed: _pickDate,
             tooltip: 'Lọc theo ngày',
           ),
@@ -154,8 +154,12 @@ class _ReportScreenState extends State<ReportScreen>
           indicatorWeight: 3,
           labelColor: primaryTeal,
           unselectedLabelColor: Colors.grey,
-          indicatorSize: TabBarIndicatorSize.tab,
-          dividerColor: Colors.transparent,
+          labelStyle:
+              const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          unselectedLabelStyle:
+              const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+          indicatorSize: TabBarIndicatorSize.label,
+          dividerColor: Colors.grey.shade200,
           tabs: const [
             Tab(text: "Tất cả"),
             Tab(text: "Chờ duyệt"),
@@ -210,78 +214,100 @@ class _ReportScreenState extends State<ReportScreen>
                   },
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 8,
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         )
                       ],
                     ),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
                           child: (report.imageUrl != null &&
                                   report.imageUrl!.isNotEmpty)
                               ? Image.network(
                                   report.imageUrl!,
-                                  width: 70,
-                                  height: 70,
+                                  width: 80,
+                                  height: 80,
                                   fit: BoxFit.cover,
                                   errorBuilder: (context, error, stackTrace) =>
                                       Container(
-                                    width: 70,
-                                    height: 70,
-                                    color: Colors.grey.shade200,
-                                    child:
-                                        const Icon(Icons.image_not_supported),
+                                    width: 80,
+                                    height: 80,
+                                    color: Colors.grey.shade100,
+                                    child: const Icon(Icons.image_not_supported,
+                                        color: Colors.grey),
                                   ),
                                 )
                               : Container(
-                                  width: 70,
-                                  height: 70,
-                                  color: Colors.grey.shade200,
-                                  child: const Icon(Icons.image_not_supported),
+                                  width: 80,
+                                  height: 80,
+                                  color: Colors.grey.shade100,
+                                  child: const Icon(Icons.image_not_supported,
+                                      color: Colors.grey),
                                 ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                report.title,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      report.title,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildStatusBadge(report.status),
+                                ],
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 6),
                               Text(
                                 report.description ?? 'Không có mô tả',
-                                style: const TextStyle(
-                                  color: Colors.grey,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey.shade600,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                DateFormat('dd/MM/yyyy HH:mm')
-                                    .format(report.createdAt),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Icon(Icons.access_time,
+                                      size: 14, color: Colors.grey),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    DateFormat('dd/MM/yyyy HH:mm')
+                                        .format(report.createdAt),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ),
-                        _buildStatusBadge(report.status),
                       ],
                     ),
                   ),
@@ -299,16 +325,16 @@ class _ReportScreenState extends State<ReportScreen>
 
   Widget _buildStatusBadge(ReportStatus status) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: status.color.withOpacity(0.15),
+        color: status.color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        status.displayName,
+        status.displayName.toUpperCase(),
         style: TextStyle(
           fontSize: 11,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.bold,
           color: status.color,
         ),
       ),
