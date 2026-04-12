@@ -9,9 +9,9 @@ import 'package:acmms/core/service/bed_service.dart';
 import 'package:acmms/core/service/plot_service.dart';
 import 'package:acmms/core/service/farm_service.dart';
 
-const Color primaryTeal = Color(0xFF4CAF50); 
-const Color darkTeal = Color(0xFF388E3C); 
-const Color bgColor = Color(0xFFF0F8F1); 
+const Color primaryTeal = Color(0xFF4CAF50);
+const Color darkTeal = Color(0xFF388E3C);
+const Color bgColor = Color(0xFFF0F8F1);
 
 class TaskDisplayData {
   final TaskModel task;
@@ -47,6 +47,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   final List<File> _images = [];
   final ImagePicker _picker = ImagePicker();
   bool _taskWasModified = false;
+  bool _isUpdatingStatus = false;
 
   // Store loaded data in state to be accessible by other methods like _scanWithAI
   Map<String, dynamic> _seasonDetailMap = {};
@@ -233,12 +234,40 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           const SizedBox(height: 16),
           // Hiển thị mô tả công việc
           if (displayData.task.description.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8.0, top: 4.0),
-              child: Text(
-                displayData.task.description,
-                style: TextStyle(
-                    color: Colors.grey.shade700, fontSize: 15, height: 1.4),
+            Container(
+              margin: const EdgeInsets.only(bottom: 12.0),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.amber.shade200),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.edit_note, color: Colors.amber.shade800, size: 24),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Ghi chú từ quản lý',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amber.shade900,
+                                fontSize: 13)),
+                        const SizedBox(height: 4),
+                        Text(
+                          displayData.task.description,
+                          style: TextStyle(
+                              color: Colors.amber.shade900,
+                              fontSize: 14,
+                              height: 1.4),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           const SizedBox(height: 8),
@@ -273,15 +302,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   Widget _buildUpdateSection() {
+    final bool isCompleted = _task?.status == TaskStatus.completed;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Cập nhật công việc hôm nay',
-            style: TextStyle(
+          Text(
+            isCompleted ? 'Công việc đã chốt' : 'Cập nhật công việc hôm nay',
+            style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
                 color: Colors.black87),
@@ -290,8 +321,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           TextField(
             controller: _updateController,
             maxLines: 3,
+            readOnly: isCompleted,
             decoration: InputDecoration(
-              hintText: 'Ví dụ: đã phun xong 2 luống đầu...',
+              hintText: isCompleted
+                  ? 'Không thể cập nhật công việc đã hoàn thành.'
+                  : 'Ví dụ: đã phun xong 2 luống đầu...',
               hintStyle: TextStyle(color: Colors.grey.shade400),
               filled: true,
               fillColor: Colors.grey.shade50,
@@ -305,20 +339,23 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: _showImageSourceActionSheet,
-            icon: const Icon(Icons.camera_alt),
-            label: const Text('Thêm ảnh hiện trường',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: primaryTeal,
-              side: const BorderSide(color: primaryTeal, width: 1.5),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          if (!isCompleted) ...[
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _showImageSourceActionSheet,
+              icon: const Icon(Icons.camera_alt),
+              label: const Text('Thêm ảnh hiện trường',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: primaryTeal,
+                side: const BorderSide(color: primaryTeal, width: 1.5),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              ),
             ),
-          ),
+          ],
           const SizedBox(height: 12),
           _buildImageThumbnails(),
         ],
@@ -327,20 +364,24 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   Widget _buildActionButtons() {
+    final bool isCompleted = _task?.status == TaskStatus.completed;
+
     return Column(
       children: [
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
             minimumSize: const Size.fromHeight(56), // Nút to hơn
-            backgroundColor:
-                Colors.blue.shade600, // Đổi màu để phân biệt với nút Hoàn thành
+            backgroundColor: isCompleted
+                ? Colors.grey.shade400
+                : Colors
+                    .blue.shade600, // Đổi màu để phân biệt với nút Hoàn thành
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
             elevation: 0,
           ),
-          onPressed: _saveUpdate,
+          onPressed: isCompleted || _isUpdatingStatus ? null : _saveUpdate,
           icon: const Icon(Icons.save),
           label: const Text('Ghi nhận cập nhật',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -349,16 +390,27 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
             minimumSize: const Size.fromHeight(56),
-            backgroundColor: primaryTeal,
+            backgroundColor: isCompleted ? Colors.grey : primaryTeal,
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
             elevation: 0,
           ),
-          onPressed: _markAsCompleted,
-          icon: const Icon(Icons.check_circle),
-          label: const Text('Đánh dấu hoàn thành',
+          onPressed: isCompleted || _isUpdatingStatus ? null : _markAsCompleted,
+          icon: _isUpdatingStatus
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white))
+              : const Icon(Icons.check_circle),
+          label: Text(
+              isCompleted
+                  ? 'Đã hoàn thành'
+                  : (_isUpdatingStatus
+                      ? 'Đang cập nhật...'
+                      : 'Đánh dấu hoàn thành'),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ),
       ],
@@ -557,16 +609,39 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     });
   }
 
-  void _markAsCompleted() {
+  Future<void> _markAsCompleted() async {
     if (_task == null) return;
+
     setState(() {
-      _task!.status = TaskStatus.completed;
-      _taskWasModified = true;
+      _isUpdatingStatus = true;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã đánh dấu hoàn thành')),
-    );
+    try {
+      await TaskService.updateTaskStatus(_task!.id, 'Completed');
+
+      setState(() {
+        _task!.status = TaskStatus.completed;
+        _taskWasModified = true;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã đánh dấu hoàn thành')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUpdatingStatus = false;
+        });
+      }
+    }
   }
 
   String _formatTaskDuration(TaskModel task) {

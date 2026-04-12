@@ -56,12 +56,15 @@ class TaskService {
             : <String>[];
         final firstBedId = bedIds.isNotEmpty ? bedIds.first : '';
 
+        final String detailNotes = detail?['notes']?.toString() ?? '';
+        final String taskNotes = task['taskNotes']?.toString() ?? '';
+
         return TaskModel(
           id: task['taskId'] ?? '',
           title:
               task['taskTitle'] ?? detail?['taskTitle'] ?? 'Không có tiêu đề',
-          description: task['taskNotes'] ?? detail?['notes'] ?? '',
-          status: _mapStatus(task['taskStatus']),
+          description: detailNotes.trim().isNotEmpty ? detailNotes : taskNotes,
+          status: _mapStatus(detail?['status'] ?? task['taskStatus']),
           seasonId: detail?['seasonId'] ?? '',
           bedIds: bedIds,
           bed: firstBedId,
@@ -108,11 +111,14 @@ class TaskService {
           : <String>[];
       final firstBedId = bedIds.isNotEmpty ? bedIds.first : '';
 
+      final String detailNotes = detail?['notes']?.toString() ?? '';
+      final String taskNotes = task['taskNotes']?.toString() ?? '';
+
       return TaskModel(
         id: task['taskId'] ?? '',
         title: task['taskTitle'] ?? detail?['taskTitle'] ?? 'Không có tiêu đề',
-        description: task['taskNotes'] ?? detail?['notes'] ?? '',
-        status: _mapStatus(task['taskStatus']),
+        description: detailNotes.trim().isNotEmpty ? detailNotes : taskNotes,
+        status: _mapStatus(detail?['status'] ?? task['taskStatus']),
         seasonId: detail?['seasonId'] ?? '',
         bedIds: bedIds,
         bed: firstBedId,
@@ -134,11 +140,25 @@ class TaskService {
     }
   }
 
+  static Future<void> updateTaskStatus(String taskId, String status) async {
+    try {
+      // TODO: Thay đổi đường dẫn '/api/Tasks/$taskId/status' cho đúng với Swagger của bạn
+      // Ví dụ: await ApiClient.instance.put('/api/Tasks/$taskId/status', data: {'status': status});
+
+      await Future.delayed(
+          const Duration(seconds: 1)); // Mock giả lập độ trễ mạng
+    } catch (e) {
+      throw ApiException('Lỗi khi cập nhật trạng thái: $e');
+    }
+  }
+
   static TaskStatus _mapStatus(String? statusStr) {
     if (statusStr == null) return TaskStatus.pending;
     final s = statusStr.toLowerCase();
-    if (s.contains('active') || s.contains('doing')) return TaskStatus.doing;
-    if (s.contains('completed')) return TaskStatus.completed;
+    if (s.contains('active') || s.contains('doing') || s.contains('progress'))
+      return TaskStatus.doing;
+    if (s.contains('completed') || s.contains('done'))
+      return TaskStatus.completed;
     if (s.contains('urgent')) return TaskStatus.urgent;
     return TaskStatus.pending;
   }
