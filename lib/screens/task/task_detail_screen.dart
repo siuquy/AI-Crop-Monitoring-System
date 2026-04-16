@@ -8,6 +8,10 @@ import 'package:acmms/core/service/season_detail_service.dart';
 import 'package:acmms/core/service/bed_service.dart';
 import 'package:acmms/core/service/plot_service.dart';
 import 'package:acmms/core/service/farm_service.dart';
+import 'package:acmms/core/service/plant_service.dart';
+import 'package:acmms/screens/report/create_report_screen.dart';
+
+import '../report/iot_info_card.dart';
 
 const Color primaryTeal = Color(0xFF4CAF50);
 const Color darkTeal = Color(0xFF388E3C);
@@ -175,9 +179,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 children: [
                   _buildTaskHeader(displayData),
                   const SizedBox(height: 16),
+                  if (displayData.task.bedIds.isNotEmpty) ...[
+                    IotInfoCard(bedId: displayData.task.bedIds.first),
+                    const SizedBox(height: 16),
+                  ],
                   _buildUpdateSection(),
                   const SizedBox(height: 16),
                   _buildActionButtons(),
+                  const SizedBox(height: 16),
                 ],
               ),
             );
@@ -411,6 +420,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   : (_isUpdatingStatus
                       ? 'Đang cập nhật...'
                       : 'Đánh dấu hoàn thành'),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(56),
+            foregroundColor: Colors.purple.shade700,
+            side: BorderSide(color: Colors.purple.shade200, width: 1.5),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          onPressed: isCompleted ? null : _showAiImageSourceActionSheet,
+          icon: const Icon(Icons.auto_awesome_rounded),
+          label: const Text('Báo cáo sự cố bằng AI',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ),
       ],
@@ -704,5 +728,72 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       _images.add(File(pickedFile.path));
       _taskWasModified = true;
     });
+  }
+
+  void _showAiImageSourceActionSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Chọn ảnh từ thư viện để phân tích'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _scanWithAI(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera),
+              title: const Text('Chụp ảnh mới để phân tích'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _scanWithAI(ImageSource.camera);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _scanWithAI(ImageSource source) async {
+    final XFile? pickedFile = await _picker.pickImage(source: source);
+    if (pickedFile == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final imageFile = File(pickedFile.path);
+      final analysisResult = await PlantService.analyzePlant(imageFile);
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Dismiss loading
+
+      final bedId = _task?.bedIds.isNotEmpty == true ? _task!.bedIds.first : '';
+      final plotId = _bedMap[bedId]?['plotId']?.toString() ?? '';
+      final farmId = _plotMap[plotId]?['farmId']?.toString() ?? '';
+
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (context) => CreateReportScreen(
+          imagePath: pickedFile.path,
+          analysisResult: analysisResult,
+          farmId: farmId,
+          plotId: plotId,
+          bedId: bedId,
+          seasonId: _task?.seasonId,
+        ),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Dismiss loading
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Lỗi phân tích AI: $e')));
+    }
   }
 }

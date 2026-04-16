@@ -41,8 +41,7 @@ class WorkerService {
   static Future<List<Worker>> getWorkers() async {
     try {
       final apiClient = ApiClient.instance;
-      final response =
-          await apiClient.get('/api/Staff'); // Cập nhật sang API mới
+      final response = await apiClient.get('/api/Staff');
       if (response != null &&
           response['success'] == true &&
           response['data'] is List) {
@@ -64,7 +63,7 @@ class WorkerService {
         return [];
       }
     } on ApiException catch (e) {
-      if (e.statusCode == 403) {
+      if (e.statusCode == 403 || e.statusCode == 404) {
         return [];
       }
       rethrow;

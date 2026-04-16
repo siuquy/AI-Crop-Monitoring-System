@@ -8,24 +8,12 @@ import '../../core/service/farm_service.dart';
 import '../../core/service/plot_service.dart';
 import '../../core/service/bed_service.dart';
 import '../../core/service/season_detail_service.dart';
-import '../../ai_result_widget.dart';
-
-enum ReportSeverity { low, medium, high }
-
-extension ReportSeverityExtension on ReportSeverity {
-  String get displayName {
-    switch (this) {
-      case ReportSeverity.low:
-        return 'Thấp';
-      case ReportSeverity.medium:
-        return 'Trung bình';
-      case ReportSeverity.high:
-        return 'Cao';
-      default:
-        return '';
-    }
-  }
-}
+import '../../shared/ai_result_widget.dart';
+import '../../core/service/worker_service.dart';
+import '../../core/service/iot_service.dart';
+import '../../models/iot_device.dart';
+import '../../models/iot_data.dart';
+import '../../models/worker.dart';
 
 class CreateReportScreen extends StatefulWidget {
   final String imagePath;
@@ -56,41 +44,65 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   bool _isSubmitting = false;
-  ReportSeverity _severity = ReportSeverity.medium;
-  late Future<Map<String, String>> _locationNamesFuture;
   String _selectedReportType = 'DISEASE';
   final List<String> _reportTypes = ['DISEASE', 'ENVIRONMENT', 'PEST', 'OTHER'];
-  String? _resolvedSeasonId;
   List<String> _imagePaths = [];
+
+  bool _isLoadingIotData = false;
+  IotData? _latestIotData;
+  IotDevice? _associatedDevice;
+
+  bool _isLoadingData = true;
+  Map<String, String> _farmMap = {};
+  Map<String, Map<String, dynamic>> _plotMap = {};
+  Map<String, Map<String, dynamic>> _bedMap = {};
+  Map<String, Map<String, dynamic>> _seasonDetailMap = {};
+  List<Worker> _owners = [];
+  Map<String, String> _seasonOptions = {};
+
+  String? _selectedFarmId;
+  String? _selectedPlotId;
+  String? _selectedBedId;
+  String? _selectedSeasonId;
+  String? _selectedOwnerId;
 
   @override
   void initState() {
     super.initState();
 
-    final plantName = widget.analysisResult['name'] ??
-        widget.analysisResult['diseaseName'] ??
-        widget.analysisResult['Tên bệnh'] ??
-        '';
+    // Chỉ sử dụng trường 'disease' từ API AI mới
+    final plantName = widget.analysisResult['disease']?.toString() ?? '';
 
     _imagePaths = [widget.imagePath]; // Khởi tạo với ảnh ban đầu từ AI
 
-    _titleController = TextEditingController(text: plantName.toString());
+    _titleController = TextEditingController(text: plantName);
 
-    _resolvedSeasonId = widget.seasonId;
-    String finalDescription = '';
-    bool isHealthy = widget.analysisResult['isHealthy'] == true ||
-        plantName.toString().toLowerCase().contains('khỏe mạnh');
-    if (isHealthy) {
-      finalDescription =
-          'Cây trồng khỏe mạnh, không phát hiện dấu hiệu bất thường.';
-    } else {
-      finalDescription =
-          'Đã phát hiện vấn đề trên cây trồng. Cần kiểm tra và xử lý thêm.';
+    // Lấy description từ AI để gán thẳng vào khung Mô tả chi tiết cho người dùng chỉnh sửa
+    String aiDescription =
+        widget.analysisResult['description']?.toString() ?? '';
+
+    if (widget.analysisResult['symptoms'] != null &&
+        widget.analysisResult['symptoms'] is List) {
+      aiDescription += '\n\nTriệu chứng:\n- ' +
+          (widget.analysisResult['symptoms'] as List).join('\n- ');
+    }
+    if (widget.analysisResult['solutions'] != null &&
+        widget.analysisResult['solutions'] is List) {
+      aiDescription += '\n\nKhuyến nghị / Giải pháp:\n- ' +
+          (widget.analysisResult['solutions'] as List).join('\n- ');
     }
 
-    _descriptionController =
-        TextEditingController(text: finalDescription.trim());
-    _locationNamesFuture = _fetchLocationNames();
+    _descriptionController = TextEditingController(text: aiDescription.trim());
+
+    _selectedFarmId = widget.farmId.isNotEmpty ? widget.farmId : null;
+    _selectedPlotId = widget.plotId.isNotEmpty ? widget.plotId : null;
+    _selectedBedId = widget.bedId.isNotEmpty ? widget.bedId : null;
+    _selectedSeasonId =
+        widget.seasonId?.isNotEmpty == true ? widget.seasonId : null;
+    _selectedOwnerId =
+        widget.ownerId?.isNotEmpty == true ? widget.ownerId : null;
+
+    _loadData();
   }
 
   @override
@@ -100,33 +112,122 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     super.dispose();
   }
 
-  Future<Map<String, String>> _fetchLocationNames() async {
-    final results = await Future.wait([
-      FarmService.getFarmMap(),
-      PlotService.getPlotMap(),
-      BedService.getBedMap(),
-      SeasonDetailService.getSeasonDetailMap(),
-    ]);
+  Future<void> _loadData() async {
+    try {
+      final results = await Future.wait([
+        FarmService.getFarmMap(),
+        PlotService.getPlotMap(),
+        BedService.getBedMap(),
+        SeasonDetailService.getSeasonDetailMap(),
+      ]);
 
-    final farmMap = results[0] as Map<String, String>;
-    final plotMap = results[1] as Map<String, Map<String, dynamic>>;
-    final bedMap = results[2] as Map<String, Map<String, dynamic>>;
-    final seasonDetailMap = results[3] as Map<String, Map<String, dynamic>>;
+      _farmMap = results[0] as Map<String, String>;
+      _plotMap = results[1] as Map<String, Map<String, dynamic>>;
+      _bedMap = results[2] as Map<String, Map<String, dynamic>>;
+      _seasonDetailMap = results[3] as Map<String, Map<String, dynamic>>;
 
-    if (_resolvedSeasonId == null) {
-      for (var detail in seasonDetailMap.values) {
-        if (detail['bedId']?.toString() == widget.bedId) {
-          _resolvedSeasonId = detail['seasonId']?.toString();
-          break;
+      // Tạm thời set cứng Owner vì Worker không gọi được API Staff (Lỗi 404/403)
+      _owners = [
+        Worker(
+          id: widget.ownerId ??
+              '4868dc1a-08f5-4bb9-a711-34961ddd4b85', // Có thể đổi lại ID thật nếu bạn muốn
+          fullName: 'Chủ Trang Trại (Mặc định)',
+          role: 'Owner',
+        )
+      ];
+
+      for (var detail in _seasonDetailMap.values) {
+        final sId = detail['seasonId']?.toString();
+        if (sId != null) {
+          final cropName = detail['cropName']?.toString() ?? 'Mùa vụ $sId';
+          _seasonOptions[sId] = cropName;
         }
       }
-    }
 
-    return {
-      'farmName': farmMap[widget.farmId] ?? 'Không rõ',
-      'plotName': plotMap[widget.plotId]?['plotName']?.toString() ?? 'Không rõ',
-      'bedName': bedMap[widget.bedId]?['bedName']?.toString() ?? 'Không rõ',
-    };
+      // --- Xử lý đồng bộ ID (Fix lỗi trống data do sai khác chữ hoa/thường) ---
+      String? findKey(Iterable<String> keys, String? target) {
+        if (target == null || target.isEmpty) return null;
+        try {
+          return keys
+              .firstWhere((k) => k.toLowerCase() == target.toLowerCase());
+        } catch (_) {
+          return null;
+        }
+      }
+
+      _selectedFarmId = findKey(_farmMap.keys, _selectedFarmId);
+      _selectedPlotId = findKey(_plotMap.keys, _selectedPlotId);
+      _selectedBedId = findKey(_bedMap.keys, _selectedBedId);
+
+      if (_selectedSeasonId == null && _selectedBedId != null) {
+        for (var detail in _seasonDetailMap.values) {
+          if (detail['bedId']?.toString().toLowerCase() ==
+              _selectedBedId?.toLowerCase()) {
+            _selectedSeasonId = detail['seasonId']?.toString();
+            break;
+          }
+        }
+      }
+      _selectedSeasonId = findKey(_seasonOptions.keys, _selectedSeasonId);
+
+      // Tự động gán Owner đầu tiên (vì luồng Worker chỉ gửi cho Owner)
+      if (_selectedOwnerId == null && _owners.isNotEmpty) {
+        _selectedOwnerId = _owners.first.id;
+      }
+
+      _loadIotDataForBed();
+    } catch (e) {
+      debugPrint('Lỗi tải dữ liệu dropdown: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingData = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadIotDataForBed() async {
+    if (_selectedBedId == null) return;
+
+    setState(() {
+      _isLoadingIotData = true;
+      _latestIotData = null;
+      _associatedDevice = null;
+    });
+
+    try {
+      // Tối ưu: Lấy danh sách thiết bị và dữ liệu IoT chạy song song
+      final results = await Future.wait([
+        IotService.getDevices(),
+        IotService.getIotDatas(),
+      ]);
+
+      final List<dynamic> devices = results[0];
+      final List<dynamic> datas = results[1];
+
+      final device = devices.firstWhere(
+        (d) => d.bedId?.toLowerCase() == _selectedBedId?.toLowerCase(),
+        orElse: () => IotDevice(
+            deviceId: '', deviceCode: '', name: '', type: '', status: ''),
+      );
+
+      if (device.deviceId.isNotEmpty) {
+        _associatedDevice = device;
+
+        final deviceDatas =
+            datas.where((d) => d.deviceId == device.deviceId).toList();
+        if (deviceDatas.isNotEmpty) {
+          deviceDatas.sort((a, b) => (b.recordedAt ?? DateTime(0))
+              .compareTo(a.recordedAt ?? DateTime(0)));
+          _latestIotData = deviceDatas.first;
+        }
+      }
+    } catch (e) {
+      debugPrint('Lỗi tải dữ liệu IoT: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingIotData = false);
+    }
   }
 
   String _getReportTypeDisplayName(String type) {
@@ -162,11 +263,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     });
 
     try {
-      final fullDescription =
-          'Mức độ nghiêm trọng: ${_severity.displayName}\n\n${_descriptionController.text}';
-      final finalOwnerId =
-          widget.ownerId ?? '4868dc1a-08f5-4bb9-a711-34961ddd4b85';
-
+      final fullDescription = _descriptionController.text.trim();
       await ReportService.createReport(
         title: _titleController.text,
         description: fullDescription,
@@ -174,11 +271,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         images: _imagePaths
             .map((path) => File(path))
             .toList(), // Truyền danh sách ảnh
-        plotId: widget.plotId,
-        bedId: widget.bedId,
+        plotId: _selectedPlotId,
+        bedId: _selectedBedId,
         aiResults: widget.analysisResult,
-        seasonId: _resolvedSeasonId,
-        ownerId: finalOwnerId,
+        seasonId: _selectedSeasonId,
+        ownerId: _selectedOwnerId,
       );
 
       if (!mounted) return;
@@ -236,12 +333,13 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildLocationInfo(),
+              _buildDropdownSection(),
               const SizedBox(height: 16),
               _buildImageSection(),
               const SizedBox(height: 16),
               _buildAiResultSection(),
               const SizedBox(height: 16),
+              _buildIotSection(),
               _buildFormSection(),
               const SizedBox(height: 24),
             ],
@@ -252,60 +350,147 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     );
   }
 
-  Widget _buildLocationInfo() {
-    return FutureBuilder<Map<String, String>>(
-      future: _locationNamesFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return const Center(child: Text('Lỗi tải vị trí'));
-        }
-        final names = snapshot.data ?? {};
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4))
-            ],
+  Widget _buildDropdownSection() {
+    if (_isLoadingData) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final availablePlots = _plotMap.entries
+        .where((e) =>
+            _selectedFarmId == null ||
+            e.value['farmId']?.toString().toLowerCase() ==
+                _selectedFarmId?.toLowerCase())
+        .toList();
+
+    final availableBeds = _bedMap.entries
+        .where((e) =>
+            _selectedPlotId == null ||
+            e.value['plotId']?.toString().toLowerCase() ==
+                _selectedPlotId?.toLowerCase())
+        .toList();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Thông tin liên quan',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            isExpanded: true,
+            value:
+                _farmMap.containsKey(_selectedFarmId) ? _selectedFarmId : null,
+            decoration:
+                _inputDecoration('Trang trại', Icons.agriculture_rounded),
+            items: _farmMap.entries
+                .map(
+                    (e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+                .toList(),
+            onChanged: null, // Vô hiệu hóa chỉnh sửa
           ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                    color: Colors.blue.shade50, shape: BoxShape.circle),
-                child: Icon(Icons.location_on_rounded,
-                    color: Colors.blue.shade600, size: 24),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Khu vực ghi nhận',
-                        style: TextStyle(fontSize: 13, color: Colors.grey)),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${names['farmName']} - ${names['plotName']} - ${names['bedName']}',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: Colors.black87),
-                    ),
-                  ],
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            isExpanded: true,
+            value: availablePlots.any((p) => p.key == _selectedPlotId)
+                ? _selectedPlotId
+                : null,
+            decoration: _inputDecoration('Khu vực (Plot)', Icons.map_rounded),
+            items: availablePlots
+                .map((e) => DropdownMenuItem(
+                    value: e.key,
+                    child: Text(e.value['plotName']?.toString() ?? '')))
+                .toList(),
+            onChanged: null, // Vô hiệu hóa chỉnh sửa
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            isExpanded: true,
+            value: availableBeds.any((b) => b.key == _selectedBedId)
+                ? _selectedBedId
+                : null,
+            decoration: _inputDecoration('Luống (Bed)', Icons.grass_rounded),
+            items: availableBeds
+                .map((e) => DropdownMenuItem(
+                    value: e.key,
+                    child: Text(e.value['bedName']?.toString() ?? '')))
+                .toList(),
+            onChanged: null, // Vô hiệu hóa chỉnh sửa
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            isExpanded: true,
+            value: _seasonOptions.containsKey(_selectedSeasonId)
+                ? _selectedSeasonId
+                : null,
+            decoration: _inputDecoration(
+                'Mùa vụ (Season)', Icons.calendar_month_rounded),
+            items: _seasonOptions.entries
+                .map(
+                    (e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+                .toList(),
+            onChanged: (val) {
+              setState(() {
+                _selectedSeasonId = val;
+              });
+            },
+          ),
+          const SizedBox(height: 16),
+          // Bỏ Dropdown chọn người nhận, thay bằng khung hiển thị tĩnh để đúng luồng Worker -> Owner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.admin_panel_settings_rounded,
+                    color: Colors.blue.shade700, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Gửi báo cáo đến (Tự động)',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.blue.shade800)),
+                      const SizedBox(height: 2),
+                      Text(
+                        _owners.any((o) => o.id == _selectedOwnerId)
+                            ? '${_owners.firstWhere((o) => o.id == _selectedOwnerId).fullName} (Chủ sở hữu)'
+                            : 'Không tìm thấy thông tin Chủ sở hữu',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade900,
+                            fontSize: 14),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -462,6 +647,113 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     );
   }
 
+  Widget _buildIotSection() {
+    if (_isLoadingIotData) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_latestIotData == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.sensors_rounded, color: Colors.blue.shade600),
+                  const SizedBox(width: 8),
+                  const Text('Dữ liệu môi trường (IoT)',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline, color: Colors.teal),
+                tooltip: 'Thêm vào mô tả',
+                onPressed: () {
+                  final appendText =
+                      '\n\n--- Dữ liệu IoT ---\nNhiệt độ: ${_latestIotData!.temperature}°C\nĐộ ẩm: ${_latestIotData!.humidity}%\nĐộ ẩm đất: ${_latestIotData!.soilMoisture}%\nÁnh sáng: ${_latestIotData!.light} lux';
+                  setState(() {
+                    _descriptionController.text =
+                        _descriptionController.text + appendText;
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Đã đính kèm dữ liệu IoT vào mô tả'),
+                      backgroundColor: Colors.green));
+                },
+              )
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildIotMetric(
+                  Icons.thermostat,
+                  '${_latestIotData!.temperature}°C',
+                  'Nhiệt độ',
+                  Colors.orange),
+              _buildIotMetric(Icons.water_drop, '${_latestIotData!.humidity}%',
+                  'Độ ẩm', Colors.blue),
+              _buildIotMetric(Icons.grass, '${_latestIotData!.soilMoisture}%',
+                  'Ẩm đất', Colors.brown),
+              _buildIotMetric(Icons.light_mode, '${_latestIotData!.light}',
+                  'Ánh sáng', Colors.amber),
+            ],
+          ),
+          if (_associatedDevice != null) ...[
+            const SizedBox(height: 12),
+            Text(
+                'Thiết bị: ${_associatedDevice!.name} - Cập nhật: ${_latestIotData!.recordedAt != null ? _latestIotData!.recordedAt!.toLocal().toString().substring(0, 16) : 'N/A'}',
+                style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                    fontStyle: FontStyle.italic)),
+          ]
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIotMetric(
+      IconData icon, String value, String label, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 28),
+        const SizedBox(height: 4),
+        Text(value,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        Text(label,
+            style: const TextStyle(fontSize: 12, color: Colors.black54)),
+      ],
+    );
+  }
+
   Widget _buildFormSection() {
     return Container(
       padding: const EdgeInsets.all(16.0),
@@ -512,43 +804,22 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
             },
           ),
           const SizedBox(height: 16),
-          DropdownButtonFormField<ReportSeverity>(
-            value: _severity,
-            decoration:
-                _inputDecoration('Mức độ nghiêm trọng', Icons.warning_rounded),
-            items: ReportSeverity.values.map((ReportSeverity severity) {
-              return DropdownMenuItem<ReportSeverity>(
-                value: severity,
-                child: Text(severity.displayName),
-              );
-            }).toList(),
-            onChanged: (ReportSeverity? newValue) {
-              if (newValue != null) {
-                setState(() {
-                  _severity = newValue;
-                });
-              }
-            },
-          ),
-          const SizedBox(height: 16),
           TextFormField(
             controller: _descriptionController,
             decoration:
-                _inputDecoration('Ghi chú thêm', Icons.description_rounded)
+                _inputDecoration('Mô tả chi tiết', Icons.description_rounded)
                     .copyWith(
               alignLabelWithHint: true,
-              hintText: 'Nhập tình trạng thực tế...',
+              hintText: 'Nhập mô tả tình trạng thực tế...',
             ),
-            maxLines: 4,
+            maxLines: 5,
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Vui lòng nhập ghi chú';
+                return 'Vui lòng nhập mô tả chi tiết';
               }
               return null;
             },
           ),
-          const SizedBox(height: 16),
-          _buildQuickSymptomChips(),
         ],
       ),
     );
@@ -573,58 +844,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.teal.shade400, width: 1.5),
       ),
-    );
-  }
-
-  Widget _buildQuickSymptomChips() {
-    final List<String> commonSymptoms = [
-      'Vàng lá',
-      'Đốm đen',
-      'Héo rũ',
-      'Sâu ăn lá',
-      'Thối rễ',
-      'Phấn trắng',
-      'Quăn mép lá'
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Gợi ý nhập nhanh:',
-            style: TextStyle(
-                fontSize: 13, fontStyle: FontStyle.italic, color: Colors.grey)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8.0,
-          runSpacing: 8.0,
-          children: commonSymptoms.map((symptom) {
-            return ActionChip(
-              label: Text(symptom,
-                  style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.teal.shade800,
-                      fontWeight: FontWeight.w500)),
-              backgroundColor: Colors.teal.shade50,
-              side: BorderSide.none,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
-              onPressed: () {
-                final currentText = _descriptionController.text;
-                if (currentText.isEmpty ||
-                    currentText
-                        .contains('Đã phát hiện vấn đề trên cây trồng')) {
-                  _descriptionController.text = symptom;
-                } else {
-                  _descriptionController.text = '$currentText, $symptom';
-                }
-                _descriptionController.selection = TextSelection.fromPosition(
-                  TextPosition(offset: _descriptionController.text.length),
-                );
-              },
-            );
-          }).toList(),
-        ),
-      ],
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade200),
+      ),
     );
   }
 

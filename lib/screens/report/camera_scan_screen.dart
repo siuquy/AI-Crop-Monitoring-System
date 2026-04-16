@@ -1,8 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../core/service/plantnet_api.dart';
-import '../../core/service/ai_service.dart';
+import '../../core/service/plant_service.dart';
 import '../../core/service/scan_history_service.dart';
 import 'scan_result_screen.dart';
 
@@ -76,29 +75,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
     });
 
     try {
-      Map<String, dynamic> result = {};
-
-      try {
-        result = await PlantNetApi.detectPlant(_image!);
-      } catch (e) {
-        debugPrint('PlantNet báo lỗi: $e');
-      }
-
-      if (result.isNotEmpty) {
-        try {
-          final plantName = result['commonName'] != 'Không có tên thông thường'
-              ? result['commonName']
-              : result['name'];
-          final extraInfo =
-              await AIService.generateDescriptionForPlant(plantName.toString());
-          result.addAll(extraInfo);
-        } catch (e) {
-          debugPrint('Lỗi sinh mô tả bằng AI: $e');
-        }
-      } else {
-        debugPrint('Đang chuyển sang Gemini AI phân tích ảnh...');
-        result = await AIService.analyzePlantImage(_image!);
-      }
+      final result = await PlantService.analyzePlant(_image!);
 
       await ScanHistoryService.saveScan(_image!.path, result);
 
@@ -199,15 +176,10 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                          "Kết quả nhận diện: ${_result!['name'] ?? _result!['diseaseName'] ?? 'Không rõ'}",
+                          "Kết quả nhận diện: ${_result!['disease'] ?? 'Không rõ'}",
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 8),
-                      if (_result!['commonName'] != null) ...[
-                        Text("Tên thông thường: ${_result!['commonName']}",
-                            style: const TextStyle(fontSize: 15)),
-                        const SizedBox(height: 8),
-                      ],
                       Text(
                         "Độ tin cậy: ${((_result!['confidence'] ?? 0.0) * 100).toStringAsFixed(1)}%",
                         style: const TextStyle(

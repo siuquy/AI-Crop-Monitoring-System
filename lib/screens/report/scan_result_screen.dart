@@ -2,9 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/service/ai_service.dart';
-import '../../core/service/plantnet_api.dart';
+import '../../shared/ai_result_widget.dart';
 import 'create_report_screen.dart';
-import '../../ai_result_widget.dart';
 
 class ScanResultScreen extends StatelessWidget {
   final File image;

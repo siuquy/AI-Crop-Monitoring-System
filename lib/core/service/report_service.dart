@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../models/report.dart';
 import 'api_client.dart';
-import 'worker_service.dart';
 
 class ReportService {
   static List<Report>? _cache;
@@ -87,41 +86,26 @@ class ReportService {
     Map<String, dynamic>? aiResults,
   }) async {
     try {
-      final worker = await WorkerService.getCurrentWorker();
-      final submitDate = DateTime.now().toUtc().toIso8601String();
       final apiClient = ApiClient.instance;
-      dynamic response;
 
-      String? aiResultsJsonStr;
-      if (aiResults != null) {
-        aiResultsJsonStr = jsonEncode(aiResults);
-      }
+      final fields = <String, String>{
+        'Title': title,
+        'Description': description,
+      };
 
-      // Gọi API dạng JSON
-      response = await apiClient.post(
+      if (reportType != null) fields['ReportType'] = reportType;
+      if (plotId != null) fields['PlotId'] = plotId;
+      if (bedId != null) fields['BedId'] = bedId;
+      if (seasonId != null) fields['SeasonId'] = seasonId;
+      if (ownerId != null) fields['OwnerId'] = ownerId;
+      if (aiResults != null) fields['AiResultsJson'] = jsonEncode(aiResults);
+
+      // Gửi API dạng Multipart Form-Data
+      final response = await apiClient.postMultipart(
         '/api/Reports',
-        body: {
-          'createdBy': worker.id,
-          'title': title,
-          'description': description,
-          'status': 'SENT_TO_OWNER',
-          'submitDate': submitDate,
-          'updatedAt': submitDate,
-          'UpdatedAt': submitDate,
-          'update_at': submitDate,
-          'updated_at': submitDate, 
-          if (reportType != null) 'reportType': reportType,
-          if (plotId != null) 'plotId': plotId,
-          if (bedId != null) 'bedId': bedId,
-          if (seasonId != null) 'seasonId': seasonId,
-          if (seasonId != null) 'SeasonId': seasonId,
-          if (seasonId != null) 'season_id': seasonId,
-          if (ownerId != null) 'ownerId': ownerId,
-          if (ownerId != null) 'owner_id': ownerId,
-          if (aiResultsJsonStr != null) 'aiResultsJson': aiResultsJsonStr,
-          if (aiResultsJsonStr != null) 'AiResultsJson': aiResultsJsonStr,
-          if (aiResultsJsonStr != null) 'ai_results_json': aiResultsJsonStr,
-        },
+        fields: fields,
+        files: images,
+        fileField: 'images', // Truyền mảng ảnh theo đúng định nghĩa Swagger
       );
 
       if (response is Map<String, dynamic> && response['success'] == true) {
@@ -164,6 +148,54 @@ class ReportService {
     } catch (e) {
       throw ApiException(
           'Đã xảy ra lỗi không mong muốn khi cập nhật báo cáo: $e');
+    }
+  }
+
+  // API GET: Lấy danh sách file đính kèm
+  static Future<List<dynamic>> getAttachments({
+    required String objectId,
+    required String objectType,
+  }) async {
+    try {
+      final apiClient = ApiClient.instance;
+      final response = await apiClient
+          .get('/api/Attachments?objectType=$objectType&objectId=$objectId');
+
+      if (response is Map<String, dynamic> && response['success'] == true) {
+        return response['data'] as List<dynamic>? ?? [];
+      }
+      return [];
+    } catch (e) {
+      _log('Lỗi khi lấy file đính kèm: $e');
+      return [];
+    }
+  }
+
+  // API POST: Tải lên file đính kèm
+  static Future<void> uploadAttachment({
+    required File file,
+    required String objectId,
+    required String objectType,
+    String attachmentType = 'Image',
+    String description = 'Ảnh đính kèm',
+  }) async {
+    try {
+      final apiClient = ApiClient.instance;
+      await apiClient.postMultipart(
+        '/api/Attachments/upload',
+        fields: {
+          'objectType': objectType,
+          'objectId': objectId,
+          'attachmentType': attachmentType,
+          'description': description,
+        },
+        files: [file],
+        fileField: 'file', // Tên field binary theo định nghĩa Swagger
+      );
+      _log('Đã upload thành công 1 ảnh đính kèm cho $objectType ($objectId).');
+    } catch (e) {
+      _log('Lỗi khi upload file đính kèm: $e');
+      // Không throw exception để tránh gián đoạn ứng dụng nếu chỉ lỗi ảnh
     }
   }
 }
