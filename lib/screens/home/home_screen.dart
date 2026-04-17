@@ -119,7 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Color _mapColor(TaskStatus status) {
     switch (status) {
       case TaskStatus.doing:
-        return Colors.blue.shade600; 
+        return Colors.blue.shade600;
       case TaskStatus.completed:
         return Colors.green;
       case TaskStatus.urgent:
@@ -449,12 +449,12 @@ class _WeatherCardState extends State<_WeatherCard> {
     final temperature = _weatherData!['temperature']?.round() ?? 'N/A';
     final description = _weatherData!['description'] ?? 'Không rõ';
     final humidity = _weatherData!['humidity'] ?? 'N/A';
-    final windSpeed = _weatherData!['windSpeed'] ?? 'N/A';
-    final iconCode = _weatherData!['icon'] ?? '01d'; // Default icon
+    final windSpeed = _weatherData!['windSpeed'] is num
+        ? (_weatherData!['windSpeed'] as num).toStringAsFixed(1)
+        : _weatherData!['windSpeed'] ?? 'N/A';
+    final iconUrl = _weatherData!['icon'] ??
+        'https://cdn.weatherapi.com/weather/64x64/day/113.png';
     final cityName = _weatherData!['cityName'] ?? 'Vị trí của bạn';
-
-    // OpenWeatherMap icon URL
-    final iconUrl = 'https://openweathermap.org/img/wn/$iconCode@2x.png';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -477,6 +477,8 @@ class _WeatherCardState extends State<_WeatherCard> {
                       color: Colors.white,
                       fontSize: 17,
                       fontWeight: FontWeight.bold),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(

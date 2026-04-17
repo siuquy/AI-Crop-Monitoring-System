@@ -4,9 +4,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
 class WeatherService {
-  static const String _apiKey = 'd54979f0754232e31970bf9e7cd74598';
-  static const String _baseUrl =
-      'https://api.openweathermap.org/data/2.5/weather';
+  static const String _apiKey = 'c36b2784d9dc467082692838261704';
+  static const String _baseUrl = 'https://api.weatherapi.com/v1/current.json';
 
   static void _log(String message) {
     if (kDebugMode) {
@@ -14,7 +13,7 @@ class WeatherService {
     }
   }
 
-  static Future<Position> _getCurrentLocation() async {
+  static Future<Position?> _getCurrentLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
 
@@ -22,7 +21,7 @@ class WeatherService {
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       _log('Dịch vụ vị trí bị tắt.');
-      return Future.error('Dịch vụ vị trí bị tắt.');
+      return null;
     }
 
     permission = await Geolocator.checkPermission();
@@ -30,14 +29,13 @@ class WeatherService {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
         _log('Quyền truy cập vị trí bị từ chối.');
-        return Future.error('Quyền truy cập vị trí bị từ chối.');
+        return null;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
       _log('Quyền truy cập vị trí bị từ chối vĩnh viễn.');
-      return Future.error(
-          'Quyền truy cập vị trí bị từ chối vĩnh viễn. Vui lòng cấp quyền trong cài đặt ứng dụng.');
+      return null;
     }
 
     // Khi quyền được cấp, lấy vị trí hiện tại.
@@ -55,26 +53,28 @@ class WeatherService {
 
     try {
       final position = await _getCurrentLocation();
-      final lat = position.latitude;
-      final lon = position.longitude;
+      final lat = 10.8231;
+      final lon = 106.6297;
 
       _log('Đang lấy thời tiết cho Lat: $lat, Lon: $lon');
 
-      final uri = Uri.parse(
-          '$_baseUrl?lat=$lat&lon=$lon&appid=$_apiKey&units=metric&lang=vi'); // units=metric cho độ C, lang=vi cho tiếng Việt
+      final uri = Uri.parse('$_baseUrl?key=$_apiKey&q=$lat,$lon&lang=vi');
 
-      final response = await http.get(uri);
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = json.decode(utf8.decode(response
+            .bodyBytes)); 
         _log('Dữ liệu thời tiết đã nhận: $data');
         return {
-          'temperature': data['main']['temp'],
-          'description': data['weather'][0]['description'],
-          'humidity': data['main']['humidity'],
-          'windSpeed': data['wind']['speed'],
-          'icon': data['weather'][0]['icon'],
-          'cityName': data['name'],
+          'temperature': data['current']['temp_c'],
+          'description': data['current']['condition']['text'],
+          'humidity': data['current']['humidity'],
+          'windSpeed':
+              data['current']['wind_kph'] / 3.6,
+          'icon':
+              'https:${data['current']['condition']['icon']}', // WeatherAPI trả về sẵn đường dẫn ảnh
+          'cityName': data['location']['name'],
         };
       } else {
         _log('Lỗi API thời tiết: ${response.statusCode} - ${response.body}');

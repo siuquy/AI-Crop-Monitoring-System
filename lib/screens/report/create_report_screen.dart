@@ -376,6 +376,22 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 _selectedPlotId?.toLowerCase())
         .toList();
 
+    final farmName = _farmMap[_selectedFarmId] ?? 'Chưa xác định';
+    final plotName = availablePlots.any((p) => p.key == _selectedPlotId)
+        ? availablePlots
+                .firstWhere((p) => p.key == _selectedPlotId)
+                .value['plotName']
+                ?.toString() ??
+            'Chưa xác định'
+        : 'Chưa xác định';
+    final bedName = availableBeds.any((b) => b.key == _selectedBedId)
+        ? availableBeds
+                .firstWhere((b) => b.key == _selectedBedId)
+                .value['bedName']
+                ?.toString() ??
+            'Chưa xác định'
+        : 'Chưa xác định';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -394,45 +410,29 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           const Text('Thông tin liên quan',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            isExpanded: true,
-            value:
-                _farmMap.containsKey(_selectedFarmId) ? _selectedFarmId : null,
-            decoration:
-                _inputDecoration('Trang trại', Icons.agriculture_rounded),
-            items: _farmMap.entries
-                .map(
-                    (e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
-                .toList(),
-            onChanged: null, // Vô hiệu hóa chỉnh sửa
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            isExpanded: true,
-            value: availablePlots.any((p) => p.key == _selectedPlotId)
-                ? _selectedPlotId
-                : null,
-            decoration: _inputDecoration('Khu vực (Plot)', Icons.map_rounded),
-            items: availablePlots
-                .map((e) => DropdownMenuItem(
-                    value: e.key,
-                    child: Text(e.value['plotName']?.toString() ?? '')))
-                .toList(),
-            onChanged: null, // Vô hiệu hóa chỉnh sửa
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            isExpanded: true,
-            value: availableBeds.any((b) => b.key == _selectedBedId)
-                ? _selectedBedId
-                : null,
-            decoration: _inputDecoration('Luống (Bed)', Icons.grass_rounded),
-            items: availableBeds
-                .map((e) => DropdownMenuItem(
-                    value: e.key,
-                    child: Text(e.value['bedName']?.toString() ?? '')))
-                .toList(),
-            onChanged: null, // Vô hiệu hóa chỉnh sửa
+
+          // Thẻ thông tin Vị trí (Chỉ đọc)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.teal.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.teal.shade100),
+            ),
+            child: Column(
+              children: [
+                _buildReadOnlyRow(
+                    Icons.agriculture_rounded, 'Trang trại', farmName),
+                const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Divider(height: 1, color: Colors.black12)),
+                _buildReadOnlyRow(Icons.map_rounded, 'Khu vực', plotName),
+                const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Divider(height: 1, color: Colors.black12)),
+                _buildReadOnlyRow(Icons.grass_rounded, 'Luống', bedName),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
@@ -452,45 +452,31 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
               });
             },
           ),
-          const SizedBox(height: 16),
-          // Bỏ Dropdown chọn người nhận, thay bằng khung hiển thị tĩnh để đúng luồng Worker -> Owner
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue.shade200),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.admin_panel_settings_rounded,
-                    color: Colors.blue.shade700, size: 28),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Gửi báo cáo đến (Tự động)',
-                          style: TextStyle(
-                              fontSize: 12, color: Colors.blue.shade800)),
-                      const SizedBox(height: 2),
-                      Text(
-                        _owners.any((o) => o.id == _selectedOwnerId)
-                            ? '${_owners.firstWhere((o) => o.id == _selectedOwnerId).fullName} (Chủ sở hữu)'
-                            : 'Không tìm thấy thông tin Chủ sở hữu',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue.shade900,
-                            fontSize: 14),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildReadOnlyRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Colors.teal.shade700),
+        const SizedBox(width: 12),
+        Text('$label:',
+            style: TextStyle(fontSize: 14, color: Colors.teal.shade900)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.teal.shade900),
+            textAlign: TextAlign.right,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 
@@ -775,6 +761,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _titleController,
+            keyboardType: TextInputType.text,
+            textCapitalization: TextCapitalization.sentences,
             decoration:
                 _inputDecoration('Tiêu đề báo cáo', Icons.title_rounded),
             validator: (value) {
@@ -806,6 +794,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _descriptionController,
+            keyboardType: TextInputType.multiline,
+            textCapitalization: TextCapitalization.sentences,
             decoration:
                 _inputDecoration('Mô tả chi tiết', Icons.description_rounded)
                     .copyWith(

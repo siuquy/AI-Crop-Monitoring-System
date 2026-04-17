@@ -22,16 +22,27 @@ class AIService {
       );
 
       if (response != null && response is Map<String, dynamic>) {
+        // Dự phòng các trường hợp Backend trả về key khác nhau
+        final disease = response["diseaseName"] ??
+            response["possibleDisease"] ??
+            response["disease"];
+        final symptoms =
+            response["symptoms"] ?? response["symptomsDetected"] ?? [];
+        final treatment = response["treatment"] ??
+            response["careSuggestions"] ??
+            response["treatmentSuggestions"] ??
+            [];
+
         return {
           "isHealthy": response["isPlant"] == true &&
               (response["severity"] == "none" ||
-                  response["possibleDisease"] == null ||
-                  response["possibleDisease"] == "Khỏe mạnh"),
-          "diseaseName": response["possibleDisease"] ?? "Khỏe mạnh",
+                  disease == null ||
+                  disease == "Khỏe mạnh"),
+          "diseaseName": disease ?? "Không phát hiện bệnh",
           "confidence": response["confidence"] ?? 0.0,
           "description": response["description"] ?? "",
-          "symptoms": response["symptomsDetected"] ?? [],
-          "treatment": response["careSuggestions"] ?? [],
+          "symptoms": symptoms,
+          "treatment": treatment,
           "isPlant": response["isPlant"],
           "plantPart": response["plantPart"],
           "severity": response["severity"],

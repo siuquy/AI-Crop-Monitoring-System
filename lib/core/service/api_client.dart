@@ -48,8 +48,7 @@ class ApiClient {
     }
     return 'https://localhost:7093';
   }
-
-  static const Duration _timeout = Duration(seconds: 30);
+  static const Duration _timeout = Duration(seconds: 60);
 
   String? get authToken => _authToken;
 
@@ -73,7 +72,7 @@ class ApiClient {
 
   Map<String, String> _getHeaders() {
     final headers = <String, String>{
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json; charset=UTF-8',
       'Accept': 'application/json',
     };
     if (_authToken != null) {
@@ -242,17 +241,17 @@ class ApiClient {
   dynamic _handleResponse(http.Response response) {
     _log('Response: ${response.statusCode} for ${response.request?.url}');
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.body.isEmpty) return null;
+      if (response.bodyBytes.isEmpty) return null;
       try {
-        return jsonDecode(response.body);
+        return jsonDecode(utf8.decode(response.bodyBytes));
       } on FormatException {
         throw ApiException('Phản hồi từ server không đúng định dạng JSON.');
       }
     } else {
       String errorMessage = 'Yêu cầu thất bại (Mã lỗi: ${response.statusCode})';
-      if (response.body.isNotEmpty) {
+      if (response.bodyBytes.isNotEmpty) {
         try {
-          final errorJson = jsonDecode(response.body);
+          final errorJson = jsonDecode(utf8.decode(response.bodyBytes));
           if (errorJson is Map<String, dynamic>) {
             errorMessage = errorJson['message'] ??
                 errorJson['title'] ??
@@ -261,7 +260,7 @@ class ApiClient {
           }
         } catch (e) {
           _log(
-              'Không thể phân tích body của lỗi dưới dạng JSON. Body: ${response.body}');
+              'Không thể phân tích body của lỗi dưới dạng JSON. Body: ${utf8.decode(response.bodyBytes)}');
         }
       }
 
