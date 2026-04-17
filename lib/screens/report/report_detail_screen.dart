@@ -3,18 +3,36 @@ import 'package:intl/intl.dart';
 
 import '../../models/report.dart';
 import '../../models/report_status.dart';
+import '../../core/service/report_service.dart';
 
 const Color primaryTeal = Color(0xFF4CAF50);
 const Color darkTeal = Color(0xFF388E3C);
 const Color bgColor = Color(0xFFF0F8F1);
 
-class ReportDetailScreen extends StatelessWidget {
+class ReportDetailScreen extends StatefulWidget {
   final Report report;
 
   const ReportDetailScreen({super.key, required this.report});
 
   @override
+  State<ReportDetailScreen> createState() => _ReportDetailScreenState();
+}
+
+class _ReportDetailScreenState extends State<ReportDetailScreen> {
+  late Future<List<dynamic>> _attachmentsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _attachmentsFuture = ReportService.getAttachments(
+      objectId: widget.report.id,
+      objectType: 'report',
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final report = widget.report;
     String rawDescription = report.description ?? 'Không có mô tả chi tiết.';
     String? severity;
     String detailedDesc = rawDescription;
@@ -70,8 +88,28 @@ class ReportDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (report.imageUrl != null && report.imageUrl!.isNotEmpty)
-              _buildImageHeader(report.imageUrl!),
+            FutureBuilder<List<dynamic>>(
+              future: _attachmentsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SizedBox(
+                    height: 260,
+                    child: Center(
+                        child: CircularProgressIndicator(color: primaryTeal)),
+                  );
+                }
+
+                final attachments = snapshot.data ?? [];
+                if (attachments.isNotEmpty) {
+                  return _buildAttachmentsCarousel(attachments);
+                }
+
+                if (report.imageUrl != null && report.imageUrl!.isNotEmpty) {
+                  return _buildImageHeader(report.imageUrl!);
+                }
+                return const SizedBox.shrink();
+              },
+            ),
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
@@ -240,6 +278,61 @@ class ReportDetailScreen extends StatelessWidget {
                     child: CircularProgressIndicator(color: primaryTeal)),
         errorBuilder: (context, error, stackTrace) =>
             const Icon(Icons.broken_image, size: 64, color: Colors.grey),
+      ),
+    );
+  }
+
+  Widget _buildAttachmentsCarousel(List<dynamic> attachments) {
+    if (attachments.length == 1) {
+      final url = attachments[0]['secureUrl'] ?? attachments[0]['fileUrl'];
+      if (url != null) return _buildImageHeader(url);
+    }
+
+    return SizedBox(
+      height: 260,
+      child: PageView.builder(
+        itemCount: attachments.length,
+        itemBuilder: (context, index) {
+          final url =
+              attachments[index]['secureUrl'] ?? attachments[index]['fileUrl'];
+          if (url == null) return const SizedBox();
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.network(
+                url,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) =>
+                    loadingProgress == null
+                        ? child
+                        : const Center(
+                            child:
+                                CircularProgressIndicator(color: primaryTeal)),
+                errorBuilder: (context, error, stackTrace) => const Icon(
+                    Icons.broken_image,
+                    size: 64,
+                    color: Colors.grey),
+              ),
+              Positioned(
+                bottom: 12,
+                right: 12,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    '${index + 1}/${attachments.length}',
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              )
+            ],
+          );
+        },
       ),
     );
   }
@@ -441,14 +534,17 @@ class ReportDetailScreen extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                   color: Colors.black87)),
           const Divider(height: 24, color: Colors.black12),
-          _buildInfoRow('Mã báo cáo:', report.reportNo ?? 'Đang cập nhật'),
-          _buildInfoRow('Loại báo cáo:', report.reportType ?? 'Không xác định'),
-          _buildInfoRow('Người quản lý:', report.ownerName ?? 'Chưa phân công'),
+          _buildInfoRow(
+              'Mã báo cáo:', widget.report.reportNo ?? 'Đang cập nhật'),
+          _buildInfoRow(
+              'Loại báo cáo:', widget.report.reportType ?? 'Không xác định'),
+          _buildInfoRow(
+              'Người quản lý:', widget.report.ownerName ?? 'Chưa phân công'),
           _buildInfoRow(
               'Ngày nộp:',
-              report.submitDate != null
+              widget.report.submitDate != null
                   ? DateFormat('dd/MM/yyyy HH:mm')
-                      .format(report.submitDate!.toLocal())
+                      .format(widget.report.submitDate!.toLocal())
                   : 'Chưa cập nhật'),
         ],
       ),

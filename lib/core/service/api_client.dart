@@ -43,8 +43,8 @@ class ApiClient {
     }
     if (Platform.isAndroid) {
       // Đổi sang IP LAN của máy tính nếu cắm máy thật chạy:
-      return 'https://192.168.1.189:7093';
-      // return 'https://10.0.2.2:7093';
+      // return 'https://192.168.1.189:7093';
+      return 'https://10.0.2.2:7093';
     }
     return 'https://localhost:7093';
   }

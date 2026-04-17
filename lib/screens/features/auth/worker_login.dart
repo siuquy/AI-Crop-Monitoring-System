@@ -310,19 +310,19 @@ class _LoginScreenState extends State<LoginScreen>
                           ],
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      if (kDebugMode)
-                        TextButton(
-                          onPressed: _navigateToHome,
-                          child: const Text(
-                            'Dev Login',
-                            style: TextStyle(
-                              color: Colors.redAccent,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 30),
+                      // const SizedBox(height: 16),
+                      // if (kDebugMode)
+                      //   TextButton(
+                      //     onPressed: _navigateToHome,
+                      //     child: const Text(
+                      //       'Dev Login',
+                      //       style: TextStyle(
+                      //         color: Colors.redAccent,
+                      //         fontWeight: FontWeight.bold,
+                      //       ),
+                      //     ),
+                      //   ),
+                      // const SizedBox(height: 30),
                     ],
                   ),
                 ),

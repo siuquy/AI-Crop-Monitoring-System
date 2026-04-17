@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../core/service/ai_service.dart';
+import '../../core/service/plant_service.dart';
 import '../../shared/ai_result_widget.dart';
 import 'create_report_screen.dart';
 
@@ -271,12 +271,7 @@ class ScanResultScreen extends StatelessWidget {
     try {
       Map<String, dynamic> result;
       final file = File(pickedFile.path);
-
-      try {
-        result = await AIService.analyzePlantImage(file);
-      } catch (e) {
-        throw Exception('Lỗi phân tích từ AI: $e');
-      }
+      result = await PlantService.analyzePlant(file);
 
       if (!context.mounted) return;
       Navigator.pop(context);
