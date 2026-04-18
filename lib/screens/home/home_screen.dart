@@ -1,13 +1,10 @@
 import 'package:acmms/screens/home/notification_screen.dart';
-import 'package:acmms/screens/task/task_list_screen.dart';
 import 'package:acmms/shared/app_bottom_navbar.dart';
 import 'package:acmms/shared/bottom_tab.dart';
 import 'package:flutter/material.dart';
 
-import '../../core/service/bed_service.dart';
-import '../../core/service/crop_service.dart';
-import '../../core/service/plot_service.dart';
 import '../../core/service/task_service.dart';
+import '../../screens/task/task_detail_screen.dart';
 import '../../core/service/worker_service.dart';
 import '../../core/service/weather_service.dart';
 import '../../models/task_model.dart';
@@ -50,34 +47,11 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final results = await Future.wait([
         TaskService.getTasks(forceRefresh: forceRefresh),
-        CropService.getCropMap(),
-        PlotService.getPlotMap(),
-        BedService.getBedMap(),
         WorkerService.getCurrentWorker(),
       ]);
 
       final data = results[0] as List<TaskModel>;
-      final cropMap = results[1] as Map<String, String>;
-      final plotMap = results[2] as Map<String, Map<String, dynamic>>;
-      final bedMap = results[3] as Map<String, Map<String, dynamic>>;
-      final worker = results[4] as Worker;
-
-      for (final task in data) {
-        final bedInfo = bedMap[task.bed];
-        if (bedInfo != null) {
-          task.bed = bedInfo['bedName']?.toString() ?? task.bed;
-          final plotId = bedInfo['plotId']?.toString() ?? '';
-          final plotInfo = plotMap[plotId];
-          if (plotInfo != null) {
-            task.area = plotInfo['plotName']?.toString() ?? task.area;
-            task.field = plotInfo['farmName']?.toString() ?? task.field;
-          }
-        }
-        final cropId = task.cropName;
-        if (cropMap.containsKey(cropId)) {
-          task.cropName = cropMap[cropId]!;
-        }
-      }
+      final worker = results[1] as Worker;
 
       final todoCount =
           data.where((e) => e.status == TaskStatus.pending).length;
@@ -127,13 +101,6 @@ class _HomeScreenState extends State<HomeScreen> {
       default:
         return Colors.orange;
     }
-  }
-
-  String _buildLocation(TaskModel t) {
-    final parts = [t.field, t.area, t.bed]
-        .where((e) => e.isNotEmpty && e != 'Chưa có dữ liệu')
-        .toList();
-    return parts.isEmpty ? 'Chưa có dữ liệu' : parts.join(' - ');
   }
 
   @override
@@ -238,16 +205,18 @@ class _HomeScreenState extends State<HomeScreen> {
       children: tasks.take(3).map((t) {
         return _TaskItem(
           title: t.title,
-          location: _buildLocation(t),
           time: t.timeRange,
           status: _mapStatus(t.status),
           color: _mapColor(t.status),
           icon: t.avatarIcon,
-          onTap: () {
-            Navigator.push(
+          onTap: () async {
+            final result = await Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const TaskListScreen()),
+              MaterialPageRoute(builder: (_) => TaskDetailScreen(taskId: t.id)),
             );
+            if (result == true) {
+              _loadAll(forceRefresh: true);
+            }
           },
         );
       }).toList(),
@@ -628,7 +597,6 @@ class _SummaryItem extends StatelessWidget {
 
 class _TaskItem extends StatelessWidget {
   final String title;
-  final String location;
   final String time;
   final String status;
   final Color color;
@@ -637,7 +605,6 @@ class _TaskItem extends StatelessWidget {
 
   const _TaskItem({
     required this.title,
-    required this.location,
     required this.time,
     required this.status,
     required this.color,
@@ -682,22 +649,6 @@ class _TaskItem extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                           color: Colors.black87)),
                   const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on_outlined,
-                          size: 14, color: Colors.grey),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          location,
-                          style:
-                              const TextStyle(fontSize: 13, color: Colors.grey),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 4),
                   Row(
                     children: [

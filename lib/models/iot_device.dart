@@ -5,6 +5,10 @@ class IotDevice {
   final String name;
   final String type;
   final String status;
+  final DateTime? installationDate;
+  final double? latitude;
+  final double? longitude;
+  final DateTime? createdAt;
   final DateTime? lastActiveAt;
 
   IotDevice({
@@ -14,6 +18,10 @@ class IotDevice {
     required this.name,
     required this.type,
     required this.status,
+    this.installationDate,
+    this.latitude,
+    this.longitude,
+    this.createdAt,
     this.lastActiveAt,
   });
 
@@ -25,8 +33,19 @@ class IotDevice {
       name: json['name'] ?? '',
       type: json['type'] ?? '',
       status: json['status'] ?? '',
+      installationDate: json['installationDate'] != null
+          ? DateTime.parse(json['installationDate'])
+          : null,
+      latitude: json['latitude'] != null
+          ? (json['latitude'] as num).toDouble()
+          : null,
+      longitude: json['longitude'] != null
+          ? (json['longitude'] as num).toDouble()
+          : null,
+      createdAt:
+          json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
       lastActiveAt: json['lastActiveAt'] != null
-          ? DateTime.tryParse(json['lastActiveAt'])
+          ? DateTime.parse(json['lastActiveAt'])
           : null,
     );
   }

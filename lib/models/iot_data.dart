@@ -9,6 +9,7 @@ class IotData {
   final double light;
   final bool isRaining;
   final bool isAlert;
+  final DateTime? createdAt;
 
   IotData({
     required this.sensorDataId,
@@ -21,6 +22,7 @@ class IotData {
     required this.light,
     required this.isRaining,
     required this.isAlert,
+    this.createdAt,
   });
 
   factory IotData.fromJson(Map<String, dynamic> json) {
@@ -29,14 +31,16 @@ class IotData {
       deviceId: json['deviceId'] ?? '',
       seasonId: json['seasonId'],
       recordedAt: json['recordedAt'] != null
-          ? DateTime.tryParse(json['recordedAt'])
+          ? DateTime.parse(json['recordedAt'])
           : null,
-      temperature: (json['temperature'] as num?)?.toDouble() ?? 0.0,
-      humidity: (json['humidity'] as num?)?.toDouble() ?? 0.0,
-      soilMoisture: (json['soilMoisture'] as num?)?.toDouble() ?? 0.0,
-      light: (json['light'] as num?)?.toDouble() ?? 0.0,
+      temperature: (json['temperature'] ?? 0).toDouble(),
+      humidity: (json['humidity'] ?? 0).toDouble(),
+      soilMoisture: (json['soilMoisture'] ?? 0).toDouble(),
+      light: (json['light'] ?? 0).toDouble(),
       isRaining: json['isRaining'] ?? false,
       isAlert: json['isAlert'] ?? false,
+      createdAt:
+          json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
     );
   }
 }

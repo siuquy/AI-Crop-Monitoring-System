@@ -32,6 +32,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8F7),
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('Cài đặt'),
         centerTitle: true,
         elevation: 0,

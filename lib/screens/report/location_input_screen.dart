@@ -318,6 +318,7 @@ class _LocationInputScreenState extends State<LocationInputScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F8),
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,

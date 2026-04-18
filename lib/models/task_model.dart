@@ -1,62 +1,84 @@
 import 'package:flutter/material.dart';
 
-enum TaskStatus { pending, doing, completed, urgent }
+enum TaskStatus { doing, pending, completed, urgent }
 
 class TaskModel {
   String id;
   String title;
-  String description;
   TaskStatus status;
-  String seasonId;
+  String description;
   List<String> bedIds;
   List<String> plotIds;
+  String timeRange;
+  String seasonId;
+  IconData avatarIcon;
+  String season;
   String taskType;
   bool isUrgent;
-  String imageAsset;
   String assignedBy;
-  String assignedRole;
   DateTime? startDate;
   DateTime? endDate;
-
-  String cropName;
-  String season;
-  String field;
-  String area;
-  String bed;
-  String date;
-  String timeRange;
-  IconData avatarIcon;
-  String rawStatus;
-  String assignedToWorkerId;
-  List<dynamic> taskDetails;
-  DateTime? taskScheduledAt;
 
   TaskModel({
     required this.id,
     required this.title,
-    required this.description,
     required this.status,
-    required this.seasonId,
+    required this.description,
     required this.bedIds,
-    this.plotIds = const [],
+    required this.plotIds,
+    required this.timeRange,
+    required this.seasonId,
+    required this.avatarIcon,
+    required this.season,
     required this.taskType,
     required this.isUrgent,
-    required this.imageAsset,
     required this.assignedBy,
-    required this.assignedRole,
     this.startDate,
     this.endDate,
-    this.cropName = 'Chưa có dữ liệu',
-    this.season = '',
-    this.field = 'Chưa có dữ liệu',
-    this.area = 'Chưa có dữ liệu',
-    this.bed = 'Chưa có dữ liệu',
-    this.date = 'Hôm nay',
-    this.timeRange = 'Trong ngày',
-    this.avatarIcon = Icons.task_alt,
-    this.rawStatus = '',
-    this.assignedToWorkerId = '',
-    this.taskDetails = const [],
-    this.taskScheduledAt,
   });
+
+  factory TaskModel.fromJson(Map<String, dynamic> json) {
+    TaskStatus parseStatus(String? statusStr) {
+      if (statusStr == null) return TaskStatus.pending;
+      final s = statusStr.toLowerCase();
+      if (s == 'completed') return TaskStatus.completed;
+      if (s == 'doing' || s == 'inprogress') return TaskStatus.doing;
+      if (s == 'urgent') return TaskStatus.urgent;
+      return TaskStatus.pending;
+    }
+
+    String timeRangeVal = '';
+    if (json['startDate'] != null && json['endDate'] != null) {
+      final start = DateTime.parse(json['startDate']).toLocal();
+      final end = DateTime.parse(json['endDate']).toLocal();
+      final startStr =
+          '${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}';
+      final endStr =
+          '${end.hour.toString().padLeft(2, '0')}:${end.minute.toString().padLeft(2, '0')}';
+      timeRangeVal = '$startStr - $endStr';
+    }
+
+    return TaskModel(
+      id: json['taskDetailId'] ?? json['scheduleId'] ?? json['taskId'] ?? '',
+      title: json['taskTitle'] ?? 'Không có tiêu đề',
+      status: parseStatus(
+          json['taskDetailStatus'] ?? json['status'] ?? json['taskStatus']),
+      description:
+          json['notes'] ?? json['description'] ?? json['taskNotes'] ?? '',
+      bedIds: json['bedIds'] != null ? List<String>.from(json['bedIds']) : [],
+      plotIds:
+          json['plotIds'] != null ? List<String>.from(json['plotIds']) : [],
+      timeRange: timeRangeVal,
+      seasonId: json['seasonId'] ?? '',
+      avatarIcon: Icons.task_alt,
+      season: json['seasonName'] ?? '',
+      taskType: 'Nhiệm vụ',
+      isUrgent: false,
+      assignedBy: json['assignedBy'] ?? 'Quản lý',
+      startDate: json['startDate'] != null
+          ? DateTime.parse(json['startDate'])
+          : DateTime.now(),
+      endDate: json['endDate'] != null ? DateTime.parse(json['endDate']) : null,
+    );
+  }
 }

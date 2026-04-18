@@ -133,6 +133,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
               '4868dc1a-08f5-4bb9-a711-34961ddd4b85', // Có thể đổi lại ID thật nếu bạn muốn
           fullName: 'Chủ Trang Trại (Mặc định)',
           role: 'Owner',
+          email: '',
         )
       ];
 

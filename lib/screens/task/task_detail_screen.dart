@@ -67,6 +67,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   /// This is the new, robust method to load and process all data needed for the screen.
   Future<TaskDisplayData> _loadAndProcessTaskDetails() async {
+    debugPrint(
+        '[TaskDetailScreen] Loading and processing task details for ID: ${widget.taskId}');
     try {
       // Step 1: Fetch all required data in parallel for performance.
       final results = await Future.wait([
@@ -79,13 +81,28 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
       // Step 2: Safely extract and cast results.
       final initialTask = results[0] as TaskModel;
+      debugPrint(
+          '[TaskDetailScreen] Initial Task fetched: ID=${initialTask.id}, Status=${initialTask.status}, Description=${initialTask.description}, BedIds=${initialTask.bedIds}, PlotIds=${initialTask.plotIds}, TimeRange=${initialTask.timeRange}');
       _seasonDetailMap = results[1] as Map<String, dynamic>;
       _bedMap = results[2] as Map<String, Map<String, dynamic>>;
       _plotMap = results[3] as Map<String, Map<String, dynamic>>;
       _farmMap = results[4] as Map<String, String>;
 
+      final safeSeasonMap = {
+        for (var e in _seasonDetailMap.entries) e.key.toLowerCase(): e.value
+      };
+      final safeBedMap = {
+        for (var e in _bedMap.entries) e.key.toLowerCase(): e.value
+      };
+      final safePlotMap = {
+        for (var e in _plotMap.entries) e.key.toLowerCase(): e.value
+      };
+      final safeFarmMap = {
+        for (var e in _farmMap.entries) e.key.toLowerCase(): e.value
+      };
+
       // Step 3: Process and resolve names from IDs. This logic is now centralized and safer.
-      final sd = _seasonDetailMap[initialTask.seasonId];
+      final sd = safeSeasonMap[initialTask.seasonId.toLowerCase()];
       final cropName = sd?['cropName']?.toString() ?? 'Không rõ';
 
       // Find the first valid location chain (Bed -> Plot -> Farm)
@@ -93,25 +110,61 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       String plotName = 'Không rõ';
       String farmName = 'Không rõ';
 
-      for (final bedId in initialTask.bedIds) {
-        final bedData = _bedMap[bedId];
-        if (bedData == null) continue;
+      // Nếu có bedIds, cố gắng giải quyết tên từ bed đầu tiên
+      if (initialTask.bedIds.isNotEmpty) {
+        final bedId = initialTask.bedIds.first; // Lấy bedId đầu tiên
+        final bedData = safeBedMap[bedId.toLowerCase()];
+        if (bedData != null) {
+          bedName = bedData['bedName']?.toString() ?? 'Không rõ';
 
-        final currentPlotId = bedData['plotId']?.toString();
-        final plotData = _plotMap[currentPlotId];
-        if (plotData == null) continue;
+          final currentPlotId = bedData['plotId']?.toString();
+          final plotData = safePlotMap[currentPlotId?.toLowerCase() ?? ''];
+          if (plotData != null) {
+            plotName = plotData['plotName']?.toString() ?? 'Không rõ';
 
-        final currentFarmId = plotData['farmId']?.toString();
-        final currentFarmName = _farmMap[currentFarmId];
-        if (currentFarmName == null) continue;
+            final currentFarmId = plotData['farmId']?.toString();
+            final currentFarmName =
+                safeFarmMap[currentFarmId?.toLowerCase() ?? ''];
+            if (currentFarmName != null) {
+              farmName = currentFarmName;
+            }
+          }
+        }
+      } else if (initialTask.plotIds.isNotEmpty) {
+        // Nếu không có bedIds nhưng có plotIds, cố gắng giải quyết tên từ plot đầu tiên
+        final plotId = initialTask.plotIds.first;
+        final plotData = safePlotMap[plotId.toLowerCase()];
+        if (plotData != null) {
+          plotName = plotData['plotName']?.toString() ?? 'Không rõ';
 
-        // Found a complete, valid location chain.
-        bedName = bedData['bedName']?.toString() ?? 'Không rõ';
-        plotName = plotData['plotName']?.toString() ?? 'Không rõ';
-        farmName = currentFarmName;
-        break; // Stop at the first valid location.
+          final currentFarmId = plotData['farmId']?.toString();
+          final currentFarmName =
+              safeFarmMap[currentFarmId?.toLowerCase() ?? ''];
+          if (currentFarmName != null) {
+            farmName = currentFarmName;
+          }
+        }
+      } else if (initialTask.seasonId.isNotEmpty) {
+        // Nếu không có plotIds nhưng có seasonId, cố gắng giải quyết tên từ season
+        // (seasonDetailMap có thể chứa farmId/plotId)
+        final seasonDetail = safeSeasonMap[initialTask.seasonId.toLowerCase()];
+        if (seasonDetail != null) {
+          final currentFarmId = seasonDetail['farmId']?.toString();
+          final currentFarmName =
+              safeFarmMap[currentFarmId?.toLowerCase() ?? ''];
+          if (currentFarmName != null) {
+            farmName = currentFarmName;
+          }
+          final currentPlotId = seasonDetail['plotId']?.toString();
+          final plotData = safePlotMap[currentPlotId?.toLowerCase() ?? ''];
+          if (plotData != null) {
+            plotName = plotData['plotName']?.toString() ?? 'Không rõ';
+          }
+        }
       }
 
+      debugPrint(
+          '[TaskDetailScreen] Resolved Location: Farm=$farmName, Plot=$plotName, Bed=$bedName');
       // Step 4: Return a clean, ready-to-use data object.
       return TaskDisplayData(
         task: initialTask,
@@ -149,6 +202,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         appBar: AppBar(
           title: const Text('Chi tiết nhiệm vụ',
               style: TextStyle(fontWeight: FontWeight.bold)),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new,
+                color: Colors.black87, size: 20),
+            onPressed: () => Navigator.of(context).pop(_taskWasModified),
+          ),
           centerTitle: true,
           backgroundColor: Colors.white,
           foregroundColor: Colors.black87,
@@ -179,7 +237,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 children: [
                   _buildTaskHeader(displayData),
                   const SizedBox(height: 16),
-                  if (displayData.task.bedIds.isNotEmpty) ...[
+                  // Chỉ hiển thị IotInfoCard nếu có bedIds và bedId đầu tiên hợp lệ
+                  if (displayData.task.bedIds.isNotEmpty &&
+                      displayData.task.bedIds.first.isNotEmpty) ...[
                     IotInfoCard(bedId: displayData.task.bedIds.first),
                     const SizedBox(height: 16),
                   ],
@@ -241,7 +301,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          // Hiển thị mô tả công việc
+          // Hiển thị mô tả công việc (ghi chú)
           if (displayData.task.description.isNotEmpty)
             Container(
               margin: const EdgeInsets.only(bottom: 12.0),
@@ -288,23 +348,27 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           const SizedBox(height: 16),
           const Divider(height: 1),
           const SizedBox(height: 16),
-          _infoRow(
-            icon: Icons.location_on_outlined,
-            title: 'Địa điểm',
-            value:
-                '${displayData.farmName} - ${displayData.plotName} - ${displayData.bedName}',
-          ),
+          // Chỉ hiển thị thông tin địa điểm nếu có dữ liệu hợp lệ
+          if (displayData.farmName != 'Không rõ' ||
+              displayData.plotName != 'Không rõ' ||
+              displayData.bedName != 'Không rõ')
+            _infoRow(
+              icon: Icons.location_on_outlined,
+              title: 'Địa điểm',
+              value:
+                  '${displayData.farmName} - ${displayData.plotName} - ${displayData.bedName}',
+            ),
           _infoRow(
             icon: Icons.access_time,
             title: 'Thời gian dự kiến',
             value: _formatTaskDuration(displayData.task),
           ),
-          _infoRow(
-            icon: Icons.person_outline,
-            title: 'Người giao việc',
-            value:
-                '${displayData.task.assignedBy} – ${displayData.task.assignedRole}',
-          ),
+          // _infoRow(
+          //   icon: Icons.person_outline,
+          //   title: 'Người giao việc',
+          //   value:
+          //       '${displayData.task.assignedBy} – ${displayData.task.assignedRole}',
+          // ),
         ],
       ),
     );
@@ -422,21 +486,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       : 'Đánh dấu hoàn thành'),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(56),
-            foregroundColor: Colors.purple.shade700,
-            side: BorderSide(color: Colors.purple.shade200, width: 1.5),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-          onPressed: isCompleted ? null : _showAiImageSourceActionSheet,
-          icon: const Icon(Icons.auto_awesome_rounded),
-          label: const Text('Báo cáo sự cố bằng AI',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        ),
+        // const SizedBox(height: 12),
+        // OutlinedButton.icon(
+        //   style: OutlinedButton.styleFrom(
+        //     minimumSize: const Size.fromHeight(56),
+        //     foregroundColor: Colors.purple.shade700,
+        //     side: BorderSide(color: Colors.purple.shade200, width: 1.5),
+        //     shape: RoundedRectangleBorder(
+        //       borderRadius: BorderRadius.circular(16),
+        //     ),
+        //   ),
+        //   onPressed: isCompleted ? null : _showAiImageSourceActionSheet,
+        //   icon: const Icon(Icons.auto_awesome_rounded),
+        //   label: const Text('Báo cáo sự cố bằng AI',
+        //       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        // ),
       ],
     );
   }
@@ -652,6 +716,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã đánh dấu hoàn thành')),
         );
+        debugPrint('[TaskDetailScreen] Popping with true after completion.');
+        // Pop immediately to refresh the previous screen and improve UX
+        Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
@@ -669,10 +736,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   String _formatTaskDuration(TaskModel task) {
-    if (task.startDate == null) {
-      return '${task.timeRange}, ${task.date}';
-    }
-
+    // task.startDate sẽ không bao giờ null vì đã được gán DateTime.now() nếu API trả về null
     String formatDate(DateTime dt) {
       return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
     }

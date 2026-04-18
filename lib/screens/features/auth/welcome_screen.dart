@@ -1,4 +1,3 @@
-import 'package:acmms/screens/task/feature_detail.dart';
 import 'package:acmms/screens/features/auth/worker_login.dart';
 import 'package:flutter/material.dart';
 
@@ -51,8 +50,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       backgroundColor: bgColor,
       body: SafeArea(
         child: CustomScrollView(
-          physics:
-              const NeverScrollableScrollPhysics(), 
+          physics: const NeverScrollableScrollPhysics(),
           slivers: [
             SliverFillRemaining(
               hasScrollBody: false,
@@ -61,7 +59,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Spacer(), 
+                    const Spacer(),
                     FadeTransition(
                       opacity: _fade,
                       child: ScaleTransition(

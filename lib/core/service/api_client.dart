@@ -48,6 +48,7 @@ class ApiClient {
     }
     return 'https://localhost:7093';
   }
+
   static const Duration _timeout = Duration(seconds: 60);
 
   String? get authToken => _authToken;
@@ -126,6 +127,56 @@ class ApiClient {
       throw ApiException('Server phản hồi quá lâu. Vui lòng thử lại.');
     } catch (e) {
       _log('Unexpected error on POST $uri: $e');
+      throw ApiException('Đã xảy ra lỗi không mong muốn: $e');
+    }
+  }
+
+  Future<dynamic> put(String path, {Object? body}) async {
+    final uri = _buildUri(path);
+    _log('PUT $uri');
+    try {
+      final response = await http
+          .put(
+            uri,
+            headers: _getHeaders(),
+            body: jsonEncode(body),
+          )
+          .timeout(_timeout);
+      return _handleResponse(response);
+    } on SocketException catch (e) {
+      _log('SocketException on PUT $uri: $e');
+      throw ApiException(
+          'Không thể kết nối tới server. Hãy kiểm tra kết nối mạng và backend.');
+    } on TimeoutException catch (e) {
+      _log('TimeoutException on PUT $uri: $e');
+      throw ApiException('Server phản hồi quá lâu. Vui lòng thử lại.');
+    } catch (e) {
+      _log('Unexpected error on PUT $uri: $e');
+      throw ApiException('Đã xảy ra lỗi không mong muốn: $e');
+    }
+  }
+
+  Future<dynamic> patch(String path, {Object? body}) async {
+    final uri = _buildUri(path);
+    _log('PATCH $uri');
+    try {
+      final response = await http
+          .patch(
+            uri,
+            headers: _getHeaders(),
+            body: jsonEncode(body),
+          )
+          .timeout(_timeout);
+      return _handleResponse(response);
+    } on SocketException catch (e) {
+      _log('SocketException on PATCH $uri: $e');
+      throw ApiException(
+          'Không thể kết nối tới server. Hãy kiểm tra kết nối mạng và backend.');
+    } on TimeoutException catch (e) {
+      _log('TimeoutException on PATCH $uri: $e');
+      throw ApiException('Server phản hồi quá lâu. Vui lòng thử lại.');
+    } catch (e) {
+      _log('Unexpected error on PATCH $uri: $e');
       throw ApiException('Đã xảy ra lỗi không mong muốn: $e');
     }
   }
