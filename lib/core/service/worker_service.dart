@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:acmms/models/worker.dart';
 
 import 'api_client.dart';
@@ -6,30 +5,27 @@ import 'api_client.dart';
 class WorkerService {
   static Future<Worker> getCurrentWorker() async {
     try {
-      final token = ApiClient.instance.authToken;
-      if (token != null && token.isNotEmpty) {
-        final parts = token.split('.');
-        if (parts.length == 3) {
-          final payload = parts[1];
-          final normalized = base64Url.normalize(payload);
-          final resp = utf8.decode(base64Url.decode(normalized));
-          final decodedToken = jsonDecode(resp);
+      final apiClient = ApiClient.instance;
+      final response = await apiClient.get('/api/Staffs/me');
 
-          final userId = decodedToken['nameid'] ?? decodedToken['sub'] ?? '';
-          final email = decodedToken['email'] ?? '';
-          final role = decodedToken['role'] ?? 'Worker';
-          final fullName =
-              decodedToken['unique_name'] ?? email.split('@').first;
+      if (response != null &&
+          response['success'] == true &&
+          response['data'] != null) {
+        final json = response['data'] as Map<String, dynamic>;
 
-          return Worker(
-            id: userId,
-            fullName: fullName,
-            role: role,
-            email: email,
-          );
+        // Ánh xạ lại các trường từ API mới cho tương thích với model cũ
+        if (json['id'] == null && json['userId'] != null) {
+          json['id'] = json['userId'];
         }
+        if (json['fullName'] == null && json['fullname'] != null) {
+          json['fullName'] = json['fullname'];
+        }
+        if (json['role'] == null && json['roleName'] != null) {
+          json['role'] = json['roleName'];
+        }
+        return Worker.fromJson(json);
       }
-      throw ApiException('Không tìm thấy thông tin đăng nhập hợp lệ.');
+      throw ApiException('Không thể lấy thông tin người dùng từ server.');
     } on ApiException {
       rethrow;
     } catch (e) {

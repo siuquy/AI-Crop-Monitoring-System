@@ -1,26 +1,14 @@
-buildscript {
-    ext.kotlin_version = '1.9.22' 
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.1.0' 
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-    }
-}
-
 allprojects {
     repositories {
         google()
         mavenCentral()
     }
-    
-    // 1. Cung cấp sẵn các biến toàn cục để các plugin cũ không bị lỗi null
+
     ext {
-        compileSdkVersion = 34
+        kotlin_version = '1.9.22'
+        compileSdkVersion = 35
         minSdkVersion = 23
-        targetSdkVersion = 34
+        targetSdkVersion = 35
     }
 }
 
@@ -30,13 +18,11 @@ subprojects {
 }
 
 subprojects {
-    // 2. Bơm trực tiếp đối tượng "flutter" vào cấu hình của các plugin.
-    // Khắc phục dứt điểm lỗi "Could not get unknown property 'flutter'".
     if (project.name != "app") {
         project.ext.set('flutter', [
-            compileSdkVersion: 34,
+            compileSdkVersion: 35,
             minSdkVersion: 23,
-            targetSdkVersion: 34
+            targetSdkVersion: 35
         ])
     }
 }

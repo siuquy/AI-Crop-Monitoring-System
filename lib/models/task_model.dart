@@ -58,6 +58,15 @@ class TaskModel {
       timeRangeVal = '$startStr - $endStr';
     }
 
+    IconData parseIcon(String t) {
+      final lower = t.toLowerCase();
+      if (lower.contains('tưới') || lower.contains('nước'))
+        return Icons.water_drop;
+      if (lower.contains('sâu bệnh') || lower.contains('thiệt hại'))
+        return Icons.bug_report;
+      return Icons.task_alt;
+    }
+
     return TaskModel(
       id: json['taskDetailId'] ?? json['scheduleId'] ?? json['taskId'] ?? '',
       title: json['taskTitle'] ?? 'Không có tiêu đề',
@@ -70,15 +79,17 @@ class TaskModel {
           json['plotIds'] != null ? List<String>.from(json['plotIds']) : [],
       timeRange: timeRangeVal,
       seasonId: json['seasonId'] ?? '',
-      avatarIcon: Icons.task_alt,
+      avatarIcon: parseIcon(json['taskTitle'] ?? ''),
       season: json['seasonName'] ?? '',
       taskType: 'Nhiệm vụ',
       isUrgent: false,
       assignedBy: json['assignedBy'] ?? 'Quản lý',
       startDate: json['startDate'] != null
-          ? DateTime.parse(json['startDate'])
+          ? DateTime.parse(json['startDate']).toLocal()
           : DateTime.now(),
-      endDate: json['endDate'] != null ? DateTime.parse(json['endDate']) : null,
+      endDate: json['endDate'] != null
+          ? DateTime.parse(json['endDate']).toLocal()
+          : null,
     );
   }
 }

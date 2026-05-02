@@ -4,7 +4,7 @@ import '../../models/task_model.dart';
 class TaskService {
   static Future<TaskModel> getTaskById(String taskId) async {
     // Tìm công việc trong WorkerSchedules hoặc TaskDetails
-    final response = await ApiClient.instance.get('/api/TaskDetails');
+    final response = await ApiClient.instance.get('/api/TaskDetails/my-tasks');
     if (response['success'] == true && response['data'] != null) {
       final List data = response['data'];
       final taskData = data.firstWhere(
@@ -20,8 +20,7 @@ class TaskService {
   }
 
   static Future<List<TaskModel>> getTasks({bool forceRefresh = false}) async {
-    final response =
-        await ApiClient.instance.get('/api/WorkerSchedules/my-schedule');
+    final response = await ApiClient.instance.get('/api/TaskDetails/my-tasks');
     if (response['success'] == true && response['data'] != null) {
       return (response['data'] as List)
           .map((json) => TaskModel.fromJson(json))
@@ -31,7 +30,7 @@ class TaskService {
   }
 
   static Future<void> updateTaskStatus(String taskId, String status) async {
-    await ApiClient.instance.patch(
+    await ApiClient.instance.put(
       '/api/TaskDetails/$taskId/status',
       body: {'status': status},
     );

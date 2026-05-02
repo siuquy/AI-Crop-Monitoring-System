@@ -52,7 +52,12 @@ class ReportService {
   }) async {
     final response = await ApiClient.instance
         .get('/api/Attachments?objectId=$objectId&objectType=$objectType');
-    if (response['success'] == true && response['data'] != null) {
+
+    if (response is List) return response;
+
+    if (response is Map &&
+        response['success'] == true &&
+        response['data'] != null) {
       return response['data'] as List;
     }
     return [];

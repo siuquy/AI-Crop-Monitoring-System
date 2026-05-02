@@ -281,17 +281,24 @@ class _TaskListScreenState extends State<TaskListScreen> {
               height: 50,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
+                  backgroundColor: task.status == TaskStatus.completed
+                      ? Colors.grey
+                      : Colors.red,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
                   elevation: 0,
                 ),
-                onPressed: () => _openDetail(task),
-                child: const Text('Xử Lý Ngay',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                onPressed: task.status == TaskStatus.completed
+                    ? null
+                    : () => _openDetail(task),
+                child: Text(
+                    task.status == TaskStatus.completed
+                        ? 'Đã hoàn thành'
+                        : 'Xử Lý Ngay',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
           ],
@@ -392,16 +399,23 @@ class _TaskListScreenState extends State<TaskListScreen> {
                 Expanded(
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryTeal,
+                      backgroundColor: task.status == TaskStatus.completed
+                          ? Colors.grey
+                          : primaryTeal,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                       elevation: 0,
                     ),
-                    onPressed: () => _openDetail(task),
-                    child: const Text('Bắt đầu ngay',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    onPressed: task.status == TaskStatus.completed
+                        ? null
+                        : () => _openDetail(task),
+                    child: Text(
+                        task.status == TaskStatus.completed
+                            ? 'Đã hoàn thành'
+                            : 'Bắt đầu ngay',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],

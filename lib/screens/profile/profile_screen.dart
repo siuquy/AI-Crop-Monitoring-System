@@ -15,13 +15,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _loadWorkerData();
+  }
+
+  void _loadWorkerData() {
     _workerFuture = WorkerService.getCurrentWorker();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Hồ sơ cá nhân')),
+      backgroundColor: const Color(0xFFF3F6F9),
+      appBar: AppBar(
+        title: const Text('Tài khoản',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+      ),
       body: FutureBuilder<Worker>(
         future: _workerFuture,
         builder: (context, snapshot) {
@@ -29,65 +40,101 @@ class _ProfileScreenState extends State<ProfileScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (snapshot.hasError) {
-            return Center(child: Text('Lỗi tải hồ sơ: ${snapshot.error}'));
-          }
-
-          if (!snapshot.hasData) {
-            return const Center(child: Text('Không có dữ liệu người dùng.'));
+          if (snapshot.hasError || !snapshot.hasData) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline,
+                        color: Colors.red, size: 50),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Không thể tải thông tin người dùng.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      snapshot.error.toString(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _loadWorkerData();
+                        });
+                      },
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Thử lại'),
+                    )
+                  ],
+                ),
+              ),
+            );
           }
 
           final worker = snapshot.data!;
 
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                CircleAvatar(
-                  radius: 48,
-                  backgroundColor: Colors.teal.shade100,
-                  backgroundImage:
-                      (worker.avatarUrl != null && worker.avatarUrl!.isNotEmpty)
-                          ? NetworkImage(worker.avatarUrl!)
-                          : null,
-                  child: (worker.avatarUrl == null || worker.avatarUrl!.isEmpty)
-                      ? const Icon(Icons.person, size: 48, color: Colors.teal)
-                      : null,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  worker.fullName,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                Text(worker.role),
-                const SizedBox(height: 24),
-                if (worker.phoneNumber != null &&
-                    worker.phoneNumber!.isNotEmpty)
-                  _infoRow('Số điện thoại', worker.phoneNumber!),
-                if (worker.email != null && worker.email!.isNotEmpty)
-                  _infoRow('Email', worker.email!),
-              ],
-            ),
+          return ListView(
+            padding: const EdgeInsets.all(16.0),
+            children: [
+              _buildProfileHeader(worker),
+            ],
           );
         },
       ),
     );
   }
 
-  Widget _infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(color: Colors.grey),
+  Widget _buildProfileHeader(Worker worker) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          children: [
+            CircleAvatar(
+              radius: 45,
+              backgroundColor: Colors.teal.shade100,
+              child: Text(
+                worker.fullName.isNotEmpty
+                    ? worker.fullName[0].toUpperCase()
+                    : 'W',
+                style: TextStyle(fontSize: 40, color: Colors.teal.shade800),
+              ),
             ),
-          ),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              worker.fullName,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              worker.email ?? 'Chưa cập nhật email',
+              style: const TextStyle(fontSize: 16, color: Colors.black54),
+            ),
+            if (worker.phoneNumber != null &&
+                worker.phoneNumber!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                worker.phoneNumber!,
+                style: const TextStyle(fontSize: 16, color: Colors.black54),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Chip(
+              label: Text(worker.role,
+                  style: const TextStyle(color: Colors.white)),
+              backgroundColor: Colors.teal,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+          ],
+        ),
       ),
     );
   }

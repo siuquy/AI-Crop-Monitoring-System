@@ -52,8 +52,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   final ImagePicker _picker = ImagePicker();
   bool _taskWasModified = false;
   bool _isUpdatingStatus = false;
+  int _aiScanAttempts = 0; 
 
-  // Store loaded data in state to be accessible by other methods like _scanWithAI
   Map<String, dynamic> _seasonDetailMap = {};
   Map<String, Map<String, dynamic>> _bedMap = {};
   Map<String, Map<String, dynamic>> _plotMap = {};
@@ -65,21 +65,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _taskDisplayFuture = _loadAndProcessTaskDetails();
   }
 
-  /// This is the new, robust method to load and process all data needed for the screen.
   Future<TaskDisplayData> _loadAndProcessTaskDetails() async {
     debugPrint(
         '[TaskDetailScreen] Loading and processing task details for ID: ${widget.taskId}');
     try {
-      // Step 1: Fetch all required data in parallel for performance.
       final results = await Future.wait([
         TaskService.getTaskById(widget.taskId),
         SeasonDetailService.getSeasonDetailMap(),
         BedService.getBedMap(),
         PlotService.getPlotMap(),
         FarmService.getFarmMap(),
-      ], eagerError: true); // Stop immediately if any API call fails.
+      ], eagerError: true); 
 
-      // Step 2: Safely extract and cast results.
       final initialTask = results[0] as TaskModel;
       debugPrint(
           '[TaskDetailScreen] Initial Task fetched: ID=${initialTask.id}, Status=${initialTask.status}, Description=${initialTask.description}, BedIds=${initialTask.bedIds}, PlotIds=${initialTask.plotIds}, TimeRange=${initialTask.timeRange}');
@@ -105,19 +102,28 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       final sd = safeSeasonMap[initialTask.seasonId.toLowerCase()];
       final cropName = sd?['cropName']?.toString() ?? 'Không rõ';
 
-      // Find the first valid location chain (Bed -> Plot -> Farm)
       String bedName = 'Không rõ';
       String plotName = 'Không rõ';
       String farmName = 'Không rõ';
 
-      // Nếu có bedIds, cố gắng giải quyết tên từ bed đầu tiên
       if (initialTask.bedIds.isNotEmpty) {
-        final bedId = initialTask.bedIds.first; // Lấy bedId đầu tiên
-        final bedData = safeBedMap[bedId.toLowerCase()];
-        if (bedData != null) {
-          bedName = bedData['bedName']?.toString() ?? 'Không rõ';
+        final bedNames = initialTask.bedIds
+            .map((bedId) {
+              final bedData = safeBedMap[bedId.toLowerCase()];
+              return bedData?['bedName']?.toString();
+            })
+            .where((name) => name != null && name.isNotEmpty)
+            .toList();
 
-          final currentPlotId = bedData['plotId']?.toString();
+        if (bedNames.isNotEmpty) {
+          bedName = bedNames.join(', ');
+        }
+
+        // Lấy thông tin plot và farm từ bed đầu tiên (giả định tất cả beds trong 1 task thuộc cùng plot/farm)
+        final firstBedId = initialTask.bedIds.first;
+        final firstBedData = safeBedMap[firstBedId.toLowerCase()];
+        if (firstBedData != null) {
+          final currentPlotId = firstBedData['plotId']?.toString();
           final plotData = safePlotMap[currentPlotId?.toLowerCase() ?? ''];
           if (plotData != null) {
             plotName = plotData['plotName']?.toString() ?? 'Không rõ';
@@ -363,12 +369,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             title: 'Thời gian dự kiến',
             value: _formatTaskDuration(displayData.task),
           ),
-          // _infoRow(
-          //   icon: Icons.person_outline,
-          //   title: 'Người giao việc',
-          //   value:
-          //       '${displayData.task.assignedBy} – ${displayData.task.assignedRole}',
-          // ),
+          _infoRow(
+            icon: Icons.person_outline,
+            title: 'Người giao việc',
+            value: displayData.task.assignedBy,
+          ),
         ],
       ),
     );
@@ -486,21 +491,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       : 'Đánh dấu hoàn thành'),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ),
-        // const SizedBox(height: 12),
-        // OutlinedButton.icon(
-        //   style: OutlinedButton.styleFrom(
-        //     minimumSize: const Size.fromHeight(56),
-        //     foregroundColor: Colors.purple.shade700,
-        //     side: BorderSide(color: Colors.purple.shade200, width: 1.5),
-        //     shape: RoundedRectangleBorder(
-        //       borderRadius: BorderRadius.circular(16),
-        //     ),
-        //   ),
-        //   onPressed: isCompleted ? null : _showAiImageSourceActionSheet,
-        //   icon: const Icon(Icons.auto_awesome_rounded),
-        //   label: const Text('Báo cáo sự cố bằng AI',
-        //       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        // ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(56),
+            foregroundColor: Colors.purple.shade700,
+            side: BorderSide(color: Colors.purple.shade200, width: 1.5),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          onPressed: isCompleted ? null : _showAiImageSourceActionSheet,
+          icon: const Icon(Icons.auto_awesome_rounded),
+          label: const Text('Báo cáo sự cố bằng AI',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        ),
       ],
     );
   }
@@ -785,7 +790,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    final XFile? pickedFile = await _picker.pickImage(source: source);
+    final XFile? pickedFile = await _picker.pickImage(
+      source: source,
+      maxWidth: 800,
+      maxHeight: 800,
+      imageQuality: 70,
+    );
 
     if (pickedFile == null) return;
     setState(() {
@@ -795,6 +805,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   void _showAiImageSourceActionSheet() {
+    // Chặn ngay nếu đã hết lượt (1 lần gọi + 2 lần thử lại = 3 lần)
+    if (_aiScanAttempts >= 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Bạn đã hết lượt sử dụng AI (tối đa 3 lần) cho công việc này để tiết kiệm chi phí.'),
+            backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -822,9 +842,57 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
+  Future<String?> _showBedSelectionDialog(List<String> bedIds) async {
+    final bedOptions = <String, String>{};
+    for (final bedId in bedIds) {
+      // Use case-insensitive lookup
+      final bedData = _bedMap.entries
+          .firstWhere(
+            (e) => e.key.toLowerCase() == bedId.toLowerCase(),
+            orElse: () => MapEntry(bedId, {'bedName': bedId}),
+          )
+          .value;
+      bedOptions[bedId] = bedData['bedName']?.toString() ?? bedId;
+    }
+
+    return showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return SimpleDialog(
+          title: const Text('Chọn luống để báo cáo sự cố'),
+          children: bedOptions.entries.map((entry) {
+            return SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(context, entry.key);
+              },
+              child: Text(entry.value),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
   Future<void> _scanWithAI(ImageSource source) async {
-    final XFile? pickedFile = await _picker.pickImage(source: source);
+    final XFile? pickedFile = await _picker.pickImage(
+      source: source,
+      maxWidth: 800,
+      maxHeight: 800,
+      imageQuality: 70,
+    );
     if (pickedFile == null) return;
+
+    String? targetBedId;
+
+    // If there are multiple beds, ask the user to select one.
+    if ((_task?.bedIds.length ?? 0) > 1) {
+      targetBedId = await _showBedSelectionDialog(_task!.bedIds);
+      if (targetBedId == null) return; // User cancelled the dialog.
+    } else {
+      targetBedId = _task?.bedIds.isNotEmpty == true ? _task!.bedIds.first : '';
+    }
+
+    _aiScanAttempts++; // Tăng biến đếm ngay trước khi bắt đầu gọi API
 
     showDialog(
       context: context,
@@ -839,9 +907,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (!mounted) return;
       Navigator.of(context).pop(); // Dismiss loading
 
-      final bedId = _task?.bedIds.isNotEmpty == true ? _task!.bedIds.first : '';
-      final plotId = _bedMap[bedId]?['plotId']?.toString() ?? '';
-      final farmId = _plotMap[plotId]?['farmId']?.toString() ?? '';
+      final safeBedMap = {
+        for (var e in _bedMap.entries) e.key.toLowerCase(): e.value
+      };
+      final safePlotMap = {
+        for (var e in _plotMap.entries) e.key.toLowerCase(): e.value
+      };
+
+      final bedData = safeBedMap[targetBedId?.toLowerCase() ?? ''];
+      final plotId = bedData?['plotId']?.toString() ?? '';
+      final plotData = safePlotMap[plotId.toLowerCase()];
+      final farmId = plotData?['farmId']?.toString() ?? '';
 
       Navigator.of(context).push(MaterialPageRoute(
         builder: (context) => CreateReportScreen(
@@ -849,7 +925,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           analysisResult: analysisResult,
           farmId: farmId,
           plotId: plotId,
-          bedId: bedId,
+          bedId: targetBedId ?? '',
           seasonId: _task?.seasonId,
         ),
       ));

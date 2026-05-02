@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
+import '../../screens/task/api_config.dart';
+
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
@@ -38,15 +40,7 @@ class ApiClient {
 
   String? _authToken;
   static String get _baseUrl {
-    if (kIsWeb) {
-      return 'https://localhost:7093';
-    }
-    if (Platform.isAndroid) {
-      // Đổi sang IP LAN của máy tính nếu cắm máy thật chạy:
-      // return 'https://192.168.1.189:7093';
-      return 'https://10.0.2.2:7093';
-    }
-    return 'https://localhost:7093';
+    return ApiConfig.baseUrl;
   }
 
   static const Duration _timeout = Duration(seconds: 60);
