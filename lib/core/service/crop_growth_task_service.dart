@@ -1,9 +1,9 @@
 import 'api_client.dart';
 
-class CropService {
-  static Future<List<dynamic>> getCrops() async {
+class CropGrowthTaskService {
+  static Future<List<dynamic>> getCropGrowthTasks() async {
     try {
-      final response = await ApiClient.instance.get('/api/Crops');
+      final response = await ApiClient.instance.get('/api/CropGrowthTask');
       if (response != null && response['success'] == true) {
         return response['data'] as List<dynamic>;
       }

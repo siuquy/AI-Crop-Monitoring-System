@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:acmms/models/task_model.dart';
 import 'package:acmms/core/service/task_service.dart';
-import 'package:acmms/core/service/season_detail_service.dart';
+import 'package:acmms/core/service/harvest_service.dart';
 import 'package:acmms/core/service/bed_service.dart';
 import 'package:acmms/core/service/plot_service.dart';
 import 'package:acmms/core/service/farm_service.dart';
@@ -52,9 +52,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   final ImagePicker _picker = ImagePicker();
   bool _taskWasModified = false;
   bool _isUpdatingStatus = false;
-  int _aiScanAttempts = 0; 
 
-  Map<String, dynamic> _seasonDetailMap = {};
+  Map<String, dynamic> _harvestMap = {};
   Map<String, Map<String, dynamic>> _bedMap = {};
   Map<String, Map<String, dynamic>> _plotMap = {};
   Map<String, String> _farmMap = {};
@@ -71,22 +70,22 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     try {
       final results = await Future.wait([
         TaskService.getTaskById(widget.taskId),
-        SeasonDetailService.getSeasonDetailMap(),
+        HarvestService.getSeasonToHarvestMap(),
         BedService.getBedMap(),
         PlotService.getPlotMap(),
         FarmService.getFarmMap(),
-      ], eagerError: true); 
+      ], eagerError: true);
 
       final initialTask = results[0] as TaskModel;
       debugPrint(
           '[TaskDetailScreen] Initial Task fetched: ID=${initialTask.id}, Status=${initialTask.status}, Description=${initialTask.description}, BedIds=${initialTask.bedIds}, PlotIds=${initialTask.plotIds}, TimeRange=${initialTask.timeRange}');
-      _seasonDetailMap = results[1] as Map<String, dynamic>;
+      _harvestMap = results[1] as Map<String, dynamic>;
       _bedMap = results[2] as Map<String, Map<String, dynamic>>;
       _plotMap = results[3] as Map<String, Map<String, dynamic>>;
       _farmMap = results[4] as Map<String, String>;
 
-      final safeSeasonMap = {
-        for (var e in _seasonDetailMap.entries) e.key.toLowerCase(): e.value
+      final safeHarvestMap = {
+        for (var e in _harvestMap.entries) e.key.toLowerCase(): e.value
       };
       final safeBedMap = {
         for (var e in _bedMap.entries) e.key.toLowerCase(): e.value
@@ -99,8 +98,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       };
 
       // Step 3: Process and resolve names from IDs. This logic is now centralized and safer.
-      final sd = safeSeasonMap[initialTask.seasonId.toLowerCase()];
-      final cropName = sd?['cropName']?.toString() ?? 'Không rõ';
+      final harvestInfo = safeHarvestMap[initialTask.seasonId.toLowerCase()];
+      final cropName = harvestInfo?['cropName']?.toString() ?? 'Không rõ';
 
       String bedName = 'Không rõ';
       String plotName = 'Không rõ';
@@ -151,20 +150,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           }
         }
       } else if (initialTask.seasonId.isNotEmpty) {
-        // Nếu không có plotIds nhưng có seasonId, cố gắng giải quyết tên từ season
-        // (seasonDetailMap có thể chứa farmId/plotId)
-        final seasonDetail = safeSeasonMap[initialTask.seasonId.toLowerCase()];
-        if (seasonDetail != null) {
-          final currentFarmId = seasonDetail['farmId']?.toString();
-          final currentFarmName =
-              safeFarmMap[currentFarmId?.toLowerCase() ?? ''];
-          if (currentFarmName != null) {
-            farmName = currentFarmName;
-          }
-          final currentPlotId = seasonDetail['plotId']?.toString();
+        // Nếu không có plotIds nhưng có seasonId, cố gắng giải quyết tên từ harvest
+        final harvestInfo = safeHarvestMap[initialTask.seasonId.toLowerCase()];
+        if (harvestInfo != null) {
+          final currentPlotId = harvestInfo['plotId']?.toString();
           final plotData = safePlotMap[currentPlotId?.toLowerCase() ?? ''];
           if (plotData != null) {
             plotName = plotData['plotName']?.toString() ?? 'Không rõ';
+            final currentFarmId = plotData['farmId']?.toString();
+            final currentFarmName =
+                safeFarmMap[currentFarmId?.toLowerCase() ?? ''];
+            if (currentFarmName != null) {
+              farmName = currentFarmName;
+            }
           }
         }
       }
@@ -198,10 +196,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () {
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
         Navigator.of(context).pop(_taskWasModified);
-        return Future.value(false);
       },
       child: Scaffold(
         backgroundColor: bgColor,
@@ -369,11 +368,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             title: 'Thời gian dự kiến',
             value: _formatTaskDuration(displayData.task),
           ),
-          _infoRow(
-            icon: Icons.person_outline,
-            title: 'Người giao việc',
-            value: displayData.task.assignedBy,
-          ),
         ],
       ),
     );
@@ -489,21 +483,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   : (_isUpdatingStatus
                       ? 'Đang cập nhật...'
                       : 'Đánh dấu hoàn thành'),
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(56),
-            foregroundColor: Colors.purple.shade700,
-            side: BorderSide(color: Colors.purple.shade200, width: 1.5),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-          onPressed: isCompleted ? null : _showAiImageSourceActionSheet,
-          icon: const Icon(Icons.auto_awesome_rounded),
-          label: const Text('Báo cáo sự cố bằng AI',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ),
       ],
@@ -746,6 +725,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
     }
 
+    if (task.startDate == null) {
+      return 'Chưa xác định';
+    }
+
     final start = formatDate(task.startDate!);
     if (task.endDate == null) {
       return start;
@@ -802,138 +785,5 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       _images.add(File(pickedFile.path));
       _taskWasModified = true;
     });
-  }
-
-  void _showAiImageSourceActionSheet() {
-    // Chặn ngay nếu đã hết lượt (1 lần gọi + 2 lần thử lại = 3 lần)
-    if (_aiScanAttempts >= 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Bạn đã hết lượt sử dụng AI (tối đa 3 lần) cho công việc này để tiết kiệm chi phí.'),
-            backgroundColor: Colors.orange),
-      );
-      return;
-    }
-
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Chọn ảnh từ thư viện để phân tích'),
-              onTap: () {
-                Navigator.of(context).pop();
-                _scanWithAI(ImageSource.gallery);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_camera),
-              title: const Text('Chụp ảnh mới để phân tích'),
-              onTap: () {
-                Navigator.of(context).pop();
-                _scanWithAI(ImageSource.camera);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<String?> _showBedSelectionDialog(List<String> bedIds) async {
-    final bedOptions = <String, String>{};
-    for (final bedId in bedIds) {
-      // Use case-insensitive lookup
-      final bedData = _bedMap.entries
-          .firstWhere(
-            (e) => e.key.toLowerCase() == bedId.toLowerCase(),
-            orElse: () => MapEntry(bedId, {'bedName': bedId}),
-          )
-          .value;
-      bedOptions[bedId] = bedData['bedName']?.toString() ?? bedId;
-    }
-
-    return showDialog<String>(
-      context: context,
-      builder: (BuildContext context) {
-        return SimpleDialog(
-          title: const Text('Chọn luống để báo cáo sự cố'),
-          children: bedOptions.entries.map((entry) {
-            return SimpleDialogOption(
-              onPressed: () {
-                Navigator.pop(context, entry.key);
-              },
-              child: Text(entry.value),
-            );
-          }).toList(),
-        );
-      },
-    );
-  }
-
-  Future<void> _scanWithAI(ImageSource source) async {
-    final XFile? pickedFile = await _picker.pickImage(
-      source: source,
-      maxWidth: 800,
-      maxHeight: 800,
-      imageQuality: 70,
-    );
-    if (pickedFile == null) return;
-
-    String? targetBedId;
-
-    // If there are multiple beds, ask the user to select one.
-    if ((_task?.bedIds.length ?? 0) > 1) {
-      targetBedId = await _showBedSelectionDialog(_task!.bedIds);
-      if (targetBedId == null) return; // User cancelled the dialog.
-    } else {
-      targetBedId = _task?.bedIds.isNotEmpty == true ? _task!.bedIds.first : '';
-    }
-
-    _aiScanAttempts++; // Tăng biến đếm ngay trước khi bắt đầu gọi API
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      final imageFile = File(pickedFile.path);
-      final analysisResult = await PlantService.analyzePlant(imageFile);
-
-      if (!mounted) return;
-      Navigator.of(context).pop(); // Dismiss loading
-
-      final safeBedMap = {
-        for (var e in _bedMap.entries) e.key.toLowerCase(): e.value
-      };
-      final safePlotMap = {
-        for (var e in _plotMap.entries) e.key.toLowerCase(): e.value
-      };
-
-      final bedData = safeBedMap[targetBedId?.toLowerCase() ?? ''];
-      final plotId = bedData?['plotId']?.toString() ?? '';
-      final plotData = safePlotMap[plotId.toLowerCase()];
-      final farmId = plotData?['farmId']?.toString() ?? '';
-
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (context) => CreateReportScreen(
-          imagePath: pickedFile.path,
-          analysisResult: analysisResult,
-          farmId: farmId,
-          plotId: plotId,
-          bedId: targetBedId ?? '',
-          seasonId: _task?.seasonId,
-        ),
-      ));
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.of(context).pop(); // Dismiss loading
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Lỗi phân tích AI: $e')));
-    }
   }
 }

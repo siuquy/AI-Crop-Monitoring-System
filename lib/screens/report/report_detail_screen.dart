@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../models/report.dart';
 import '../../models/report_status.dart';
 import '../../core/service/report_service.dart';
+import '../../screens/task/api_config.dart';
 
 const Color primaryTeal = Color(0xFF4CAF50);
 const Color darkTeal = Color(0xFF388E3C);
@@ -19,15 +20,9 @@ class ReportDetailScreen extends StatefulWidget {
 }
 
 class _ReportDetailScreenState extends State<ReportDetailScreen> {
-  late Future<List<dynamic>> _attachmentsFuture;
-
   @override
   void initState() {
     super.initState();
-    _attachmentsFuture = ReportService.getAttachments(
-      objectId: widget.report.id,
-      objectType: 'report',
-    );
   }
 
   @override
@@ -88,28 +83,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            FutureBuilder<List<dynamic>>(
-              future: _attachmentsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const SizedBox(
-                    height: 260,
-                    child: Center(
-                        child: CircularProgressIndicator(color: primaryTeal)),
-                  );
-                }
-
-                final attachments = snapshot.data ?? [];
-                if (attachments.isNotEmpty) {
-                  return _buildAttachmentsCarousel(attachments);
-                }
-
-                if (report.imageUrl != null && report.imageUrl!.isNotEmpty) {
-                  return _buildImageHeader(report.imageUrl!);
-                }
-                return const SizedBox.shrink();
-              },
-            ),
+            if (report.imageUrl != null && report.imageUrl!.isNotEmpty)
+              _buildImageHeader(report.imageUrl!)
+            else
+              const SizedBox.shrink(),
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
@@ -262,6 +239,24 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   Widget _buildImageHeader(String imageUrl) {
+    if (imageUrl.startsWith('assets/')) {
+      return Container(
+        width: double.infinity,
+        height: 260,
+        decoration: BoxDecoration(color: Colors.grey.shade200),
+        child: Image.asset(
+          imageUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) =>
+              const Icon(Icons.broken_image, size: 64, color: Colors.grey),
+        ),
+      );
+    }
+
+    final String finalImageUrl = imageUrl.startsWith('http')
+        ? imageUrl
+        : '${ApiConfig.baseUrl.replaceAll(RegExp(r'/$'), '')}/${imageUrl.replaceAll(RegExp(r'^/'), '')}';
+
     return Container(
       width: double.infinity,
       height: 260,
@@ -269,7 +264,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         color: Colors.grey.shade200,
       ),
       child: Image.network(
-        imageUrl,
+        finalImageUrl,
         fit: BoxFit.cover,
         loadingBuilder: (context, child, loadingProgress) =>
             loadingProgress == null
@@ -278,61 +273,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     child: CircularProgressIndicator(color: primaryTeal)),
         errorBuilder: (context, error, stackTrace) =>
             const Icon(Icons.broken_image, size: 64, color: Colors.grey),
-      ),
-    );
-  }
-
-  Widget _buildAttachmentsCarousel(List<dynamic> attachments) {
-    if (attachments.length == 1) {
-      final url = attachments[0]['secureUrl'] ?? attachments[0]['fileUrl'];
-      if (url != null) return _buildImageHeader(url);
-    }
-
-    return SizedBox(
-      height: 260,
-      child: PageView.builder(
-        itemCount: attachments.length,
-        itemBuilder: (context, index) {
-          final url =
-              attachments[index]['secureUrl'] ?? attachments[index]['fileUrl'];
-          if (url == null) return const SizedBox();
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.network(
-                url,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) =>
-                    loadingProgress == null
-                        ? child
-                        : const Center(
-                            child:
-                                CircularProgressIndicator(color: primaryTeal)),
-                errorBuilder: (context, error, stackTrace) => const Icon(
-                    Icons.broken_image,
-                    size: 64,
-                    color: Colors.grey),
-              ),
-              Positioned(
-                bottom: 12,
-                right: 12,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    '${index + 1}/${attachments.length}',
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              )
-            ],
-          );
-        },
       ),
     );
   }

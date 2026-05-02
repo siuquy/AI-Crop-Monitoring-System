@@ -7,7 +7,7 @@ import '../../core/service/api_client.dart';
 import '../../core/service/farm_service.dart';
 import '../../core/service/plot_service.dart';
 import '../../core/service/bed_service.dart';
-import '../../core/service/season_detail_service.dart';
+import '../../core/service/harvest_service.dart';
 import '../../shared/ai_result_widget.dart';
 import '../../core/service/worker_service.dart';
 import '../../core/service/iot_service.dart';
@@ -56,7 +56,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   Map<String, String> _farmMap = {};
   Map<String, Map<String, dynamic>> _plotMap = {};
   Map<String, Map<String, dynamic>> _bedMap = {};
-  Map<String, Map<String, dynamic>> _seasonDetailMap = {};
+  Map<String, dynamic> _harvestMap = {};
   List<Worker> _owners = [];
   Map<String, String> _seasonOptions = {};
 
@@ -71,7 +71,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     super.initState();
 
     // Chỉ sử dụng trường 'disease' từ API AI mới
-    final plantName = widget.analysisResult['disease']?.toString() ?? '';
+    final plantName = widget.analysisResult['diseaseName']?.toString() ?? widget.analysisResult['disease']?.toString() ?? '';
 
     _imagePaths = [widget.imagePath]; // Khởi tạo với ảnh ban đầu từ AI
 
@@ -86,10 +86,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       aiDescription += '\n\nTriệu chứng:\n- ' +
           (widget.analysisResult['symptoms'] as List).join('\n- ');
     }
-    if (widget.analysisResult['solutions'] != null &&
-        widget.analysisResult['solutions'] is List) {
+    final treatmentList = widget.analysisResult['treatment'] ?? widget.analysisResult['solutions'];
+    if (treatmentList != null && treatmentList is List && treatmentList.isNotEmpty) {
       aiDescription += '\n\nKhuyến nghị / Giải pháp:\n- ' +
-          (widget.analysisResult['solutions'] as List).join('\n- ');
+          treatmentList.join('\n- ');
     }
 
     _descriptionController = TextEditingController(text: aiDescription.trim());
@@ -118,13 +118,13 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         FarmService.getFarmMap(),
         PlotService.getPlotMap(),
         BedService.getBedMap(),
-        SeasonDetailService.getSeasonDetailMap(),
+        HarvestService.getSeasonToHarvestMap(),
       ]);
 
       _farmMap = results[0] as Map<String, String>;
       _plotMap = results[1] as Map<String, Map<String, dynamic>>;
       _bedMap = results[2] as Map<String, Map<String, dynamic>>;
-      _seasonDetailMap = results[3] as Map<String, Map<String, dynamic>>;
+      _harvestMap = results[3] as Map<String, dynamic>;
 
       // Tạm thời set cứng Owner vì Worker không gọi được API Staff (Lỗi 404/403)
       _owners = [
@@ -137,7 +137,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         )
       ];
 
-      for (var detail in _seasonDetailMap.values) {
+      for (var detail in _harvestMap.values) {
         final sId = detail['seasonId']?.toString();
         if (sId != null) {
           final cropName = detail['cropName']?.toString() ?? 'Mùa vụ $sId';
@@ -160,10 +160,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       _selectedPlotId = findKey(_plotMap.keys, _selectedPlotId);
       _selectedBedId = findKey(_bedMap.keys, _selectedBedId);
 
-      if (_selectedSeasonId == null && _selectedBedId != null) {
-        for (var detail in _seasonDetailMap.values) {
-          if (detail['bedId']?.toString().toLowerCase() ==
-              _selectedBedId?.toLowerCase()) {
+      // harvestMap chỉ chứa plotId, không chứa bedId, nên đối chiếu theo plotId
+      if (_selectedSeasonId == null && _selectedPlotId != null) {
+        for (var detail in _harvestMap.values) {
+          if (detail['plotId']?.toString().toLowerCase() ==
+              _selectedPlotId?.toLowerCase()) {
             _selectedSeasonId = detail['seasonId']?.toString();
             break;
           }

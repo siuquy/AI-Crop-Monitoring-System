@@ -3,7 +3,6 @@ import '../../models/task_model.dart';
 
 class TaskService {
   static Future<TaskModel> getTaskById(String taskId) async {
-    // Tìm công việc trong WorkerSchedules hoặc TaskDetails
     final response = await ApiClient.instance.get('/api/TaskDetails/my-tasks');
     if (response['success'] == true && response['data'] != null) {
       final List data = response['data'];
@@ -30,7 +29,7 @@ class TaskService {
   }
 
   static Future<void> updateTaskStatus(String taskId, String status) async {
-    await ApiClient.instance.put(
+    await ApiClient.instance.patch(
       '/api/TaskDetails/$taskId/status',
       body: {'status': status},
     );

@@ -4,6 +4,7 @@ import 'package:acmms/shared/app_bottom_navbar.dart';
 import 'package:acmms/shared/bottom_tab.dart';
 import 'package:acmms/models/task_model.dart';
 import 'package:acmms/core/service/task_service.dart';
+import 'package:acmms/models/task_filter.dart';
 import 'task_detail_screen.dart';
 
 const Color primaryTeal = Color(0xFF4CAF50);
@@ -17,7 +18,7 @@ class TaskListScreen extends StatefulWidget {
   State<TaskListScreen> createState() => _TaskListScreenState();
 }
 
-enum TaskFilter { all, today, week }
+enum DateFilter { all, today, week }
 
 Future<List<TaskModel>> _loadAll() async {
   // API /my-schedule không còn trả về chi tiết địa điểm,
@@ -34,7 +35,8 @@ String _formatTaskDateTime(DateTime? date) {
 }
 
 class _TaskListScreenState extends State<TaskListScreen> {
-  TaskFilter _currentFilter = TaskFilter.all;
+  DateFilter _currentDateFilter = DateFilter.all;
+  TaskFilter _currentStatusFilter = TaskFilter.all;
   late Future<List<TaskModel>> _tasksFuture;
 
   @override
@@ -52,33 +54,48 @@ class _TaskListScreenState extends State<TaskListScreen> {
 
   List<TaskModel> _applyFilter(List<TaskModel> tasks) {
     List<TaskModel> filtered = tasks.where((task) {
-      if (_currentFilter == TaskFilter.all) return true;
-
+      // 1. Lọc theo thời gian (Hôm nay, Tuần này)
       final date = task.startDate?.toLocal();
-      if (date == null) return false;
+      bool passDate = true;
 
-      if (_currentFilter == TaskFilter.today) {
-        final now = DateTime.now();
-        return date.year == now.year &&
-            date.month == now.month &&
-            date.day == now.day;
+      if (_currentDateFilter != DateFilter.all) {
+        if (date == null) {
+          passDate = false;
+        } else if (_currentDateFilter == DateFilter.today) {
+          final now = DateTime.now();
+          passDate = date.year == now.year &&
+              date.month == now.month &&
+              date.day == now.day;
+        } else if (_currentDateFilter == DateFilter.week) {
+          final now = DateTime.now();
+          final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+          final endOfWeek = startOfWeek.add(const Duration(days: 6));
+
+          passDate = !date.isBefore(
+                DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day),
+              ) &&
+              !date.isAfter(
+                DateTime(
+                    endOfWeek.year, endOfWeek.month, endOfWeek.day, 23, 59, 59),
+              );
+        }
       }
+      if (!passDate) return false;
 
-      if (_currentFilter == TaskFilter.week) {
-        final now = DateTime.now();
-        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-        final endOfWeek = startOfWeek.add(const Duration(days: 6));
-
-        return !date.isBefore(
-              DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day),
-            ) &&
-            !date.isAfter(
-              DateTime(
-                  endOfWeek.year, endOfWeek.month, endOfWeek.day, 23, 59, 59),
-            );
+      // 2. Lọc theo trạng thái (Khẩn cấp, Đang làm, Cần làm)
+      switch (_currentStatusFilter) {
+        case TaskFilter.urgent:
+          return task.isUrgent || task.status == TaskStatus.urgent;
+        case TaskFilter.doing:
+          return task.status == TaskStatus.doing;
+        case TaskFilter.todo:
+          return task.status == TaskStatus.pending;
+        case TaskFilter.completed:
+          return task.status == TaskStatus.completed;
+        case TaskFilter.all:
+        default:
+          return true;
       }
-
-      return true;
     }).toList();
 
     filtered.sort((a, b) {
@@ -130,7 +147,22 @@ class _TaskListScreenState extends State<TaskListScreen> {
               IconButton(
                 onPressed: _refreshTasks,
                 icon: const Icon(Icons.refresh, color: Colors.black),
-              )
+              ),
+              IconButton(
+                onPressed: () {
+                  TaskFilterHelper.show(
+                    context: context,
+                    current: _currentStatusFilter,
+                    onSelected: (filter) {
+                      setState(() => _currentStatusFilter = filter);
+                    },
+                  );
+                },
+                icon: Icon(Icons.filter_list_alt,
+                    color: _currentStatusFilter == TaskFilter.all
+                        ? Colors.black
+                        : primaryTeal),
+              ),
             ],
           ),
         ],
@@ -182,21 +214,21 @@ class _TaskListScreenState extends State<TaskListScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       child: Row(
         children: [
-          _filterItem('Tất cả', TaskFilter.all),
+          _filterItem('Tất cả', DateFilter.all),
           const SizedBox(width: 8),
-          _filterItem('Hôm nay', TaskFilter.today),
+          _filterItem('Hôm nay', DateFilter.today),
           const SizedBox(width: 8),
-          _filterItem('Tuần này', TaskFilter.week),
+          _filterItem('Tuần này', DateFilter.week),
         ],
       ),
     );
   }
 
-  Widget _filterItem(String text, TaskFilter filter) {
-    final active = _currentFilter == filter;
+  Widget _filterItem(String text, DateFilter filter) {
+    final active = _currentDateFilter == filter;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _currentFilter = filter),
+        onTap: () => setState(() => _currentDateFilter = filter),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
@@ -368,8 +400,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
                       const SizedBox(height: 12),
                       _infoRow(Icons.access_time,
                           'Thời gian: ${_formatTaskDateTime(task.startDate)}'),
-                      _infoRow(
-                          Icons.person_outline, 'Giao bởi: ${task.assignedBy}'),
                     ],
                   ),
                 ),

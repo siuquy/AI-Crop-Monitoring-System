@@ -5,7 +5,7 @@ import 'api_client.dart';
 class IotService {
   static Future<List<IotDevice>> getDevices() async {
     final response = await ApiClient.instance.get('/api/IotDevices');
-    if (response['success'] == true && response['data'] != null) {
+    if (response != null && response['success'] == true && response['data'] != null) {
       return (response['data'] as List)
           .map((json) => IotDevice.fromJson(json))
           .toList();
@@ -15,7 +15,7 @@ class IotService {
 
   static Future<List<IotData>> getIotDatas() async {
     final response = await ApiClient.instance.get('/api/IotDatas');
-    if (response['success'] == true && response['data'] != null) {
+    if (response != null && response['success'] == true && response['data'] != null) {
       return (response['data'] as List)
           .map((json) => IotData.fromJson(json))
           .toList();

@@ -2,20 +2,22 @@ import 'api_client.dart';
 
 class PlotService {
   static Future<Map<String, Map<String, dynamic>>> getPlotMap() async {
-    final response = await ApiClient.instance.get('/api/Plots');
-    final Map<String, Map<String, dynamic>> map = {};
-
-    if (response['success'] == true && response['data'] != null) {
-      for (var item in response['data']) {
-        final id = item['plotId']?.toString();
-        if (id != null) {
-          map[id] = {
-            'plotName': item['plotName'],
-            'farmId': item['farmId'],
-          };
+    try {
+      final response = await ApiClient.instance.get('/api/Plots');
+      final map = <String, Map<String, dynamic>>{};
+      
+      if (response != null && response['success'] == true) {
+        final data = response['data'] as List<dynamic>;
+        for (var item in data) {
+          final id = item['plotId']?.toString();
+          if (id != null) {
+            map[id] = item as Map<String, dynamic>;
+          }
         }
       }
+      return map;
+    } catch (e) {
+      return {};
     }
-    return map;
   }
 }

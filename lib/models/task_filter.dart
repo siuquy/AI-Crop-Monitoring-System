@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum TaskFilter { all, urgent, doing, todo }
+enum TaskFilter { all, urgent, doing, todo, completed }
 
 class TaskFilterHelper {
   static void show({
@@ -43,6 +43,8 @@ class TaskFilterHelper {
         return 'Đang thực hiện';
       case TaskFilter.todo:
         return 'Chưa bắt đầu';
+      case TaskFilter.completed:
+        return 'Đã hoàn thành';
     }
   }
 }

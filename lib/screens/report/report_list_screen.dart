@@ -8,6 +8,8 @@ import '../../screens/task/api_config.dart';
 import 'report_detail_screen.dart';
 import 'report_update_screen.dart';
 
+const Color primaryTeal = Color(0xFF4CAF50);
+
 class ReportListScreen extends StatefulWidget {
   const ReportListScreen({super.key});
 
@@ -18,7 +20,7 @@ class ReportListScreen extends StatefulWidget {
 class _ReportListScreenState extends State<ReportListScreen> {
   final List<Report> _reports = [];
   List<Report> _allReports = []; // Thêm biến lưu toàn bộ danh sách nội bộ
-  final Map<String, String> _attachmentUrls = {};
+  ReportStatus? _currentFilter; // Biến lưu trạng thái lọc hiện tại
   final ScrollController _scrollController = ScrollController();
 
   bool _isLoading = false;
@@ -50,6 +52,39 @@ class _ReportListScreenState extends State<ReportListScreen> {
     }
   }
 
+  void _applyFilter(ReportStatus? filter) {
+    if (_currentFilter == filter) return;
+
+    // Tự động cuộn lên đầu danh sách mượt mà khi đổi bộ lọc
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(0,
+          duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    }
+
+    setState(() {
+      _currentFilter = filter;
+      _page = 1;
+      _reports.clear();
+
+      if (_allReports.isNotEmpty) {
+        final filteredReports = filter == null
+            ? _allReports
+            : _allReports.where((r) => r.status == filter).toList();
+
+        _reports.addAll(filteredReports.take(_limit));
+        _hasMore = filteredReports.length > _limit;
+        _page = _hasMore ? 2 : 1;
+      } else {
+        _hasMore = true;
+      }
+    });
+
+    // Chỉ gọi API lại nếu danh sách gốc trống và không bị kẹt trạng thái loading
+    if (_allReports.isEmpty && !_isLoading) {
+      _fetchReports();
+    }
+  }
+
   Future<void> _fetchReports({bool isRefresh = false}) async {
     if (_isLoading || (!_hasMore && !isRefresh)) return;
 
@@ -63,7 +98,6 @@ class _ReportListScreenState extends State<ReportListScreen> {
       _hasMore = true;
       _reports.clear();
       _allReports.clear();
-      _attachmentUrls.clear();
     }
 
     try {
@@ -72,20 +106,26 @@ class _ReportListScreenState extends State<ReportListScreen> {
         _allReports = await ReportService.getReports();
       }
 
+      // Áp dụng bộ lọc trạng thái
+      final filteredReports = _currentFilter == null
+          ? _allReports
+          : _allReports.where((r) => r.status == _currentFilter).toList();
+
       // Phân trang nội bộ để tải từ từ các file đính kèm
       final startIndex = (_page - 1) * _limit;
-      final newReports = _allReports.skip(startIndex).take(_limit).toList();
+      final newReports = filteredReports.skip(startIndex).take(_limit).toList();
 
       if (newReports.length < _limit ||
-          startIndex + newReports.length >= _allReports.length) {
+          startIndex + newReports.length >= filteredReports.length) {
         _hasMore = false;
       }
 
-      await _fetchAttachmentsForReports(newReports);
-
       setState(() {
         _reports.addAll(newReports);
-        _page++;
+        _hasMore = startIndex + newReports.length < filteredReports.length;
+        if (_hasMore) {
+          _page++;
+        }
       });
     } catch (e) {
       setState(() {
@@ -101,36 +141,6 @@ class _ReportListScreenState extends State<ReportListScreen> {
     }
   }
 
-  Future<void> _fetchAttachmentsForReports(List<Report> reports) async {
-    final futures = reports.map((report) async {
-      if (_attachmentUrls.containsKey(report.id)) return;
-
-      try {
-        final attachments = await ReportService.getAttachments(
-            objectId: report.id, objectType: 'report');
-        if (attachments.isNotEmpty) {
-          final attachmentData = attachments[0];
-          String? url;
-          if (attachmentData is Map) {
-            url = attachmentData['secureUrl'] ??
-                attachmentData['fileUrl'] ??
-                attachmentData['url'] ??
-                attachmentData['filePath'] ??
-                attachmentData['path'];
-          } else if (attachmentData is String) {
-            url = attachmentData;
-          }
-          if (url != null) {
-            _attachmentUrls[report.id] = url;
-          }
-        }
-      } catch (e) {
-        debugPrint('[DEBUG] Lỗi tải tệp đính kèm cho report ${report.id}: $e');
-      }
-    });
-    await Future.wait(futures);
-  }
-
   void _navigateToUpdateScreen(Report report) async {
     final result = await Navigator.push(
       context,
@@ -139,7 +149,7 @@ class _ReportListScreenState extends State<ReportListScreen> {
           reportId: report.id,
           title: report.title,
           diseaseName: report.diseaseName ?? '',
-          imagePath: _attachmentUrls[report.id] ?? report.imageUrl ?? '',
+          imagePath: report.imageUrl ?? '',
           ownerComment: report.ownerComment ?? '',
         ),
       ),
@@ -171,7 +181,88 @@ class _ReportListScreenState extends State<ReportListScreen> {
         centerTitle: true,
       ),
       backgroundColor: const Color(0xFFF3F6F9),
-      body: _buildBody(),
+      body: Column(
+        children: [
+          _buildFilterBar(),
+          Expanded(child: _buildBody()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterBar() {
+    // Chỉ hiển thị các trạng thái có dữ liệu thực tế (ẩn các tab rỗng)
+    final availableStatuses = ReportStatus.values.where((status) {
+      if (_allReports.isEmpty) return true; // Khi đang tải thì hiển thị tất cả
+      return _allReports.any((r) => r.status == status);
+    }).toList();
+
+    return Container(
+      height: 60,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        children: [
+          _buildFilterPill(null, 'Tất cả', primaryTeal),
+          ...availableStatuses.map((status) =>
+              _buildFilterPill(status, status.displayName, status.color)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterPill(
+      ReportStatus? status, String label, Color themeColor) {
+    final isSelected = _currentFilter == status;
+
+    // Đếm số lượng báo cáo cho từng trạng thái
+    String displayLabel = label;
+    if (_allReports.isNotEmpty) {
+      final count = status == null
+          ? _allReports.length
+          : _allReports.where((r) => r.status == status).length;
+      displayLabel = '$label ($count)';
+    }
+
+    return GestureDetector(
+      onTap: () => _applyFilter(status),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(right: 12.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color:
+              isSelected ? themeColor.withOpacity(0.12) : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color:
+                isSelected ? themeColor.withOpacity(0.5) : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected) ...[
+              Icon(status?.icon ?? Icons.dashboard_customize_rounded,
+                  size: 16, color: themeColor),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              displayLabel,
+              style: TextStyle(
+                color: isSelected ? themeColor : Colors.grey.shade600,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -205,8 +296,16 @@ class _ReportListScreenState extends State<ReportListScreen> {
     }
 
     if (_reports.isEmpty) {
-      return const Center(
-        child: Text('Chưa có báo cáo nào.'),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade300),
+            const SizedBox(height: 16),
+            Text('Không có báo cáo trong mục này',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),
+          ],
+        ),
       );
     }
 
@@ -228,7 +327,6 @@ class _ReportListScreenState extends State<ReportListScreen> {
           final report = _reports[index];
           return _ReportListItem(
             report: report,
-            attachmentUrl: _attachmentUrls[report.id],
             onTap: () => _handleItemTap(report),
           );
         },
@@ -239,17 +337,15 @@ class _ReportListScreenState extends State<ReportListScreen> {
 
 class _ReportListItem extends StatelessWidget {
   final Report report;
-  final String? attachmentUrl;
   final VoidCallback onTap;
 
   const _ReportListItem({
     required this.report,
-    this.attachmentUrl,
     required this.onTap,
   });
 
   Widget _buildImage() {
-    String? imageUrl = attachmentUrl ?? report.imageUrl;
+    String? imageUrl = report.imageUrl;
 
     if (imageUrl != null && imageUrl.isNotEmpty) {
       if (imageUrl.startsWith('assets/')) {

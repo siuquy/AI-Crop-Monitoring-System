@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/service/report_service.dart';
+import '../../screens/task/api_config.dart';
 
 class ReportUpdateScreen extends StatefulWidget {
   final String reportId;
@@ -92,6 +93,11 @@ class _ReportUpdateScreenState extends State<ReportUpdateScreen> {
   }
 
   Widget buildImageSection() {
+    final String finalImageUrl = widget.imagePath.startsWith('http') ||
+            widget.imagePath.startsWith('assets/')
+        ? widget.imagePath
+        : '${ApiConfig.baseUrl.replaceAll(RegExp(r'/$'), '')}/${widget.imagePath.replaceAll(RegExp(r'^/'), '')}';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -114,20 +120,37 @@ class _ReportUpdateScreenState extends State<ReportUpdateScreen> {
                     newImage!,
                     fit: BoxFit.cover,
                   )
-                : Image.network(
-                    widget.imagePath,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return const Center(child: CircularProgressIndicator());
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Center(
-                        child: Icon(Icons.broken_image,
+                : widget.imagePath.isNotEmpty
+                    ? (widget.imagePath.startsWith('assets/')
+                        ? Image.asset(
+                            widget.imagePath,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Center(
+                                child: Icon(Icons.broken_image,
+                                    color: Colors.grey, size: 48),
+                              );
+                            },
+                          )
+                        : Image.network(
+                            finalImageUrl,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(
+                                  child: CircularProgressIndicator());
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Center(
+                                child: Icon(Icons.broken_image,
+                                    color: Colors.grey, size: 48),
+                              );
+                            },
+                          ))
+                    : const Center(
+                        child: Icon(Icons.image_not_supported_outlined,
                             color: Colors.grey, size: 48),
-                      );
-                    },
-                  ),
+                      ),
           ),
         ),
         const SizedBox(height: 12),

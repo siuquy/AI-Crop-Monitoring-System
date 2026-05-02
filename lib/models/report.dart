@@ -53,16 +53,22 @@ class Report {
   factory Report.fromJson(Map<String, dynamic> json) {
     ReportStatus status;
     // Ánh xạ chuỗi trạng thái từ API sang enum ReportStatus
-    switch (json['status']?.toString().toLowerCase()) {
+    switch (json['status']?.toString().toLowerCase().trim()) {
       case 'active':
       case 'approved':
-      case 'diagnosed':
         status = ReportStatus.approved;
         break;
+      case 'diagnosed':
+        status = ReportStatus.diagnosed;
+        break;
       case 'pending':
-      case 'assigned_for_diagnosis':
-      case 'sent_to_owner':
         status = ReportStatus.pending;
+        break;
+      case 'assigned_for_diagnosis':
+        status = ReportStatus.assignedForDiagnosis;
+        break;
+      case 'sent_to_owner':
+        status = ReportStatus.sentToOwner;
         break;
       case 'needsupdate':
         status = ReportStatus.needsUpdate;
@@ -95,6 +101,17 @@ class Report {
       }
     }
 
+    String? imgUrl = json['imageUrl'];
+    if (imgUrl == null &&
+        json['attachments'] != null &&
+        json['attachments'] is List &&
+        (json['attachments'] as List).isNotEmpty) {
+      final firstAttachment = json['attachments'][0];
+      if (firstAttachment is Map) {
+        imgUrl = firstAttachment['secureUrl'] ?? firstAttachment['fileUrl'];
+      }
+    }
+
     return Report(
       id: json['reportId'] ?? json['id'] ?? '',
       reportNo: json['reportNo'],
@@ -119,7 +136,7 @@ class Report {
           : null,
       status: status,
       workerName: json['creatorName'] ?? json['workerName'],
-      imageUrl: json['imageUrl'],
+      imageUrl: imgUrl,
       diseaseName: json['diseaseName'] ?? parsedAiResults?['diseaseName'],
       ownerComment: json['ownerComment'],
       aiResults: parsedAiResults,

@@ -11,7 +11,8 @@ class WorkerService {
       if (response != null &&
           response['success'] == true &&
           response['data'] != null) {
-        final json = response['data'] as Map<String, dynamic>;
+        final json =
+            Map<String, dynamic>.from(response['data'] as Map<String, dynamic>);
 
         // Ánh xạ lại các trường từ API mới cho tương thích với model cũ
         if (json['id'] == null && json['userId'] != null) {
@@ -43,17 +44,18 @@ class WorkerService {
           response['data'] is List) {
         final List<dynamic> workerData = response['data'];
         return workerData.map((json) {
+          final data = Map<String, dynamic>.from(json as Map<String, dynamic>);
           // Ánh xạ lại các trường từ API mới cho tương thích với model cũ
-          if (json['id'] == null && json['userId'] != null) {
-            json['id'] = json['userId'];
+          if (data['id'] == null && data['userId'] != null) {
+            data['id'] = data['userId'];
           }
-          if (json['fullName'] == null && json['fullname'] != null) {
-            json['fullName'] = json['fullname'];
+          if (data['fullName'] == null && data['fullname'] != null) {
+            data['fullName'] = data['fullname'];
           }
-          if (json['role'] == null && json['roleName'] != null) {
-            json['role'] = json['roleName'];
+          if (data['role'] == null && data['roleName'] != null) {
+            data['role'] = data['roleName'];
           }
-          return Worker.fromJson(json);
+          return Worker.fromJson(data);
         }).toList();
       } else {
         return [];

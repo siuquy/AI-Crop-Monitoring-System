@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'report_update_screen.dart';
 import '../../models/report_status.dart';
+import '../../screens/task/api_config.dart';
 
 class ReportViewDetailScreen extends StatelessWidget {
   final String reportId;
@@ -26,25 +27,11 @@ class ReportViewDetailScreen extends StatelessWidget {
   });
 
   Color getStatusColor() {
-    switch (status) {
-      case ReportStatus.approved:
-        return Colors.green;
-      case ReportStatus.pending:
-        return Colors.orange;
-      case ReportStatus.needsUpdate:
-        return Colors.red;
-    }
+    return status.color;
   }
 
   String getStatusText() {
-    switch (status) {
-      case ReportStatus.approved:
-        return "Đã duyệt";
-      case ReportStatus.pending:
-        return "Chờ duyệt";
-      case ReportStatus.needsUpdate:
-        return "Yêu cầu bổ sung";
-    }
+    return status.displayName;
   }
 
   Widget buildInfoRow(String label, String value) {
@@ -154,10 +141,41 @@ class ReportViewDetailScreen extends StatelessWidget {
   }
 
   Widget buildImage() {
+    if (imagePath.isEmpty) {
+      return Container(
+        width: double.infinity,
+        height: 240,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Icon(Icons.image_not_supported_outlined,
+            color: Colors.grey, size: 48),
+      );
+    }
+
+    if (imagePath.startsWith('assets/')) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Image.asset(
+          imagePath,
+          width: double.infinity,
+          height: 240,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => const Center(
+              child: Icon(Icons.broken_image, color: Colors.grey, size: 48)),
+        ),
+      );
+    }
+
+    final String finalImageUrl = imagePath.startsWith('http')
+        ? imagePath
+        : '${ApiConfig.baseUrl.replaceAll(RegExp(r'/$'), '')}/${imagePath.replaceAll(RegExp(r'^/'), '')}';
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
       child: Image.network(
-        imagePath,
+        finalImageUrl,
         width: double.infinity,
         height: 240,
         fit: BoxFit.cover,
