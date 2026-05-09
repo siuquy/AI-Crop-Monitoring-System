@@ -17,7 +17,6 @@ class WeatherService {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Kiểm tra xem dịch vụ vị trí có được bật không.
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       _log('Dịch vụ vị trí bị tắt.');
@@ -38,13 +37,11 @@ class WeatherService {
       return null;
     }
 
-    // Khi quyền được cấp, lấy vị trí hiện tại.
     _log('Đang lấy vị trí hiện tại...');
     return await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high);
   }
 
-  /// Lấy dữ liệu thời tiết dựa trên vị trí hiện tại.
   static Future<Map<String, dynamic>> fetchWeather() async {
     if (_apiKey == 'YOUR_OPENWEATHERMAP_API_KEY' || _apiKey.isEmpty) {
       _log('OpenWeatherMap API Key chưa được cấu hình.');

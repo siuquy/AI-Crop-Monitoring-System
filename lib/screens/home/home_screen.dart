@@ -9,6 +9,7 @@ import '../../core/service/worker_service.dart';
 import '../../core/service/weather_service.dart';
 import '../../models/task_model.dart';
 import '../../models/worker.dart';
+import 'harvest_screen.dart';
 
 const Color primaryTeal = Color(0xFF4CAF50); // Chuyển sang xanh lá tươi
 const Color darkTeal = Color(0xFF388E3C); // Màu xanh lá đậm
@@ -143,6 +144,55 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _TaskSummary(todo: todo, doing: doing, done: done),
+                    const SizedBox(height: 24),
+                    Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const HarvestScreen(),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: primaryTeal.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.eco_rounded,
+                                  color: primaryTeal,
+                                  size: 28,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Báo cáo Thu hoạch', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                    SizedBox(height: 4),
+                                    Text('Ghi nhận sản lượng nông sản', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 32),
                     const Text('Nhiệm vụ hôm nay',
                         style: TextStyle(

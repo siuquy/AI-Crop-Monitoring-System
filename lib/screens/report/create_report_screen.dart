@@ -71,7 +71,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     super.initState();
 
     // Chỉ sử dụng trường 'disease' từ API AI mới
-    final plantName = widget.analysisResult['diseaseName']?.toString() ?? widget.analysisResult['disease']?.toString() ?? '';
+    final plantName = widget.analysisResult['diseaseName']?.toString() ??
+        widget.analysisResult['disease']?.toString() ??
+        '';
 
     _imagePaths = [widget.imagePath]; // Khởi tạo với ảnh ban đầu từ AI
 
@@ -86,10 +88,13 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       aiDescription += '\n\nTriệu chứng:\n- ' +
           (widget.analysisResult['symptoms'] as List).join('\n- ');
     }
-    final treatmentList = widget.analysisResult['treatment'] ?? widget.analysisResult['solutions'];
-    if (treatmentList != null && treatmentList is List && treatmentList.isNotEmpty) {
-      aiDescription += '\n\nKhuyến nghị / Giải pháp:\n- ' +
-          treatmentList.join('\n- ');
+    final treatmentList = widget.analysisResult['treatment'] ??
+        widget.analysisResult['solutions'];
+    if (treatmentList != null &&
+        treatmentList is List &&
+        treatmentList.isNotEmpty) {
+      aiDescription +=
+          '\n\nKhuyến nghị / Giải pháp:\n- ' + treatmentList.join('\n- ');
     }
 
     _descriptionController = TextEditingController(text: aiDescription.trim());
@@ -445,8 +450,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
             decoration: _inputDecoration(
                 'Mùa vụ (Season)', Icons.calendar_month_rounded),
             items: _seasonOptions.entries
-                .map(
-                    (e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+                .map((e) => DropdownMenuItem<String>(
+                    value: e.key, child: Text(e.value)))
                 .toList(),
             onChanged: (val) {
               setState(() {
