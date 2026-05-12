@@ -1,9 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../core/service/plant_service.dart';
+import '../../core/service/ai_service.dart';
 import '../../core/service/scan_history_service.dart';
+import '../../core/service/harvest_service.dart';
 import 'scan_result_screen.dart';
+import 'iot_info_card.dart';
 
 class CameraScanScreen extends StatefulWidget {
   final String farmId;
@@ -26,11 +29,14 @@ class CameraScanScreen extends StatefulWidget {
   State<CameraScanScreen> createState() => _CameraScanScreenState();
 }
 
-class _CameraScanScreenState extends State<CameraScanScreen> {
+class _CameraScanScreenState extends State<CameraScanScreen>
+    with SingleTickerProviderStateMixin {
   final ImagePicker _picker = ImagePicker();
   File? _image;
   bool _isLoading = false;
   Map<String, dynamic>? _result;
+  AnimationController? _animationController;
+  Animation<Color?>? _colorAnimation;
 
   @override
   void initState() {
@@ -40,12 +46,18 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _animationController?.dispose();
+    super.dispose();
+  }
+
   Future<void> _pickImage({ImageSource source = ImageSource.camera}) async {
     final XFile? pickedFile = await _picker.pickImage(
       source: source,
-      imageQuality: 70,
-      maxWidth: 1080,
-      maxHeight: 1080,
+      imageQuality: 65,
+      maxWidth: 720,
+      maxHeight: 720,
     );
 
     if (pickedFile == null) {
@@ -57,6 +69,8 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
       setState(() {
         _image = File(pickedFile.path);
         _result = null;
+        _animationController?.dispose();
+        _animationController = null;
       });
     }
   }
@@ -75,17 +89,60 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
     });
 
     try {
-      final result = await PlantService.analyzePlant(_image!);
+      String plantName = 'Cây trồng';
+      try {
+        final harvestMap = await HarvestService.getSeasonToHarvestMap();
+        for (var detail in harvestMap.values) {
+          if (detail['plotId']?.toString().toLowerCase() ==
+              widget.plotId.toLowerCase()) {
+            final cName = detail['cropName']?.toString();
+            if (cName != null && cName.isNotEmpty) {
+              plantName = cName;
+            }
+            break;
+          }
+        }
+      } catch (_) {
+        // Bỏ qua nếu có lỗi tải danh sách mùa vụ, giữ nguyên mặc định 'Cây trồng'
+      }
+
+      final result = await AIService.analyzePlantImage(
+        _image!,
+        farmId: widget.farmId,
+        plotId: widget.plotId,
+        bedId: widget.bedId,
+        plantName:
+            '$plantName (AI CHÚ Ý QUAN TRỌNG: BẠN PHẢI DỊCH 100% CÁC TRƯỜNG description, symptoms, solutions, treatmentSteps SANG TIẾNG VIỆT)',
+        growthStage:
+            'Giai đoạn sinh trưởng (Vui lòng sử dụng Tiếng Việt cho toàn bộ câu trả lời)',
+      );
 
       await ScanHistoryService.saveScan(_image!.path, result);
 
       if (mounted) {
         setState(() {
           _result = result;
+          final isHealthy =
+              (_result!['severity']?.toString() ?? 'none').toLowerCase() ==
+                  'none';
+          if (!isHealthy) {
+            _animationController?.dispose();
+            _animationController = AnimationController(
+              duration: const Duration(milliseconds: 800),
+              vsync: this,
+            )..repeat(reverse: true);
+            _colorAnimation = ColorTween(
+                    begin: Colors.orange.shade700, end: Colors.red.shade600)
+                .animate(_animationController!);
+          } else {
+            _animationController?.dispose();
+            _animationController = null;
+          }
         });
       }
     } catch (e) {
       if (mounted) {
+        HapticFeedback.heavyImpact();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
         );
@@ -101,6 +158,9 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isResultHealthy = _result != null &&
+        (_result!['severity']?.toString() ?? 'none').toLowerCase() == 'none';
+
     return Scaffold(
       appBar: AppBar(title: const Text("Quét bằng Camera")),
       body: SingleChildScrollView(
@@ -108,6 +168,12 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Hiển thị thẻ thông tin IoT của luống hiện tại để Worker tham khảo
+            if (widget.bedId.isNotEmpty) ...[
+              IotInfoCard(bedId: widget.bedId),
+              const SizedBox(height: 16),
+            ],
+
             if (_image != null)
               Column(
                 children: [
@@ -171,12 +237,12 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: (_result!['isHealthy'] == true)
+                  color: isResultHealthy
                       ? Colors.green.shade50
                       : Colors.orange.shade50,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: (_result!['isHealthy'] == true)
+                    color: isResultHealthy
                         ? Colors.green.shade200
                         : Colors.orange.shade200,
                   ),
@@ -186,20 +252,29 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: (_result!['isHealthy'] == true)
+                        color: isResultHealthy
                             ? Colors.green.shade100
                             : Colors.orange.shade100,
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(
-                        (_result!['isHealthy'] == true)
-                            ? Icons.check_circle_outline_rounded
-                            : Icons.warning_amber_rounded,
-                        color: (_result!['isHealthy'] == true)
-                            ? Colors.green.shade700
-                            : Colors.orange.shade700,
-                        size: 32,
-                      ),
+                      child: isResultHealthy || _colorAnimation == null
+                          ? Icon(
+                              isResultHealthy
+                                  ? Icons.check_circle_outline_rounded
+                                  : Icons.eco_rounded,
+                              color: isResultHealthy
+                                  ? Colors.green.shade700
+                                  : Colors.orange.shade700,
+                              size: 32,
+                            )
+                          : AnimatedBuilder(
+                              animation: _colorAnimation!,
+                              builder: (context, child) => Transform.rotate(
+                                angle: 0.8, // Nghiêng lá tạo cảm giác héo úa
+                                child: Icon(Icons.eco_rounded,
+                                    color: _colorAnimation!.value, size: 32),
+                              ),
+                            ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -207,11 +282,11 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _result!['diseaseName'] ?? 'Không rõ',
+                            _result!['disease']?.toString() ?? 'Không rõ',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: (_result!['isHealthy'] == true)
+                              color: isResultHealthy
                                   ? Colors.green.shade800
                                   : Colors.orange.shade900,
                             ),
@@ -222,7 +297,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: (_result!['isHealthy'] == true)
+                              color: isResultHealthy
                                   ? Colors.green.shade700
                                   : Colors.orange.shade800,
                             ),

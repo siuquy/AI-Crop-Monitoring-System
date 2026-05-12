@@ -94,6 +94,8 @@ class ApiClient {
     } on TimeoutException catch (e) {
       _log('TimeoutException on GET $uri: $e');
       throw ApiException('Server phản hồi quá lâu. Vui lòng thử lại.');
+    } on ApiException {
+      rethrow;
     } catch (e) {
       _log('Unexpected error on GET $uri: $e');
       throw ApiException('Đã xảy ra lỗi không mong muốn: $e');
@@ -119,6 +121,8 @@ class ApiClient {
     } on TimeoutException catch (e) {
       _log('TimeoutException on POST $uri: $e');
       throw ApiException('Server phản hồi quá lâu. Vui lòng thử lại.');
+    } on ApiException {
+      rethrow;
     } catch (e) {
       _log('Unexpected error on POST $uri: $e');
       throw ApiException('Đã xảy ra lỗi không mong muốn: $e');
@@ -144,6 +148,8 @@ class ApiClient {
     } on TimeoutException catch (e) {
       _log('TimeoutException on PUT $uri: $e');
       throw ApiException('Server phản hồi quá lâu. Vui lòng thử lại.');
+    } on ApiException {
+      rethrow;
     } catch (e) {
       _log('Unexpected error on PUT $uri: $e');
       throw ApiException('Đã xảy ra lỗi không mong muốn: $e');
@@ -169,6 +175,8 @@ class ApiClient {
     } on TimeoutException catch (e) {
       _log('TimeoutException on PATCH $uri: $e');
       throw ApiException('Server phản hồi quá lâu. Vui lòng thử lại.');
+    } on ApiException {
+      rethrow;
     } catch (e) {
       _log('Unexpected error on PATCH $uri: $e');
       throw ApiException('Đã xảy ra lỗi không mong muốn: $e');
@@ -224,6 +232,8 @@ class ApiClient {
     } on TimeoutException catch (e) {
       _log('TimeoutException on Multipart POST $uri: $e');
       throw ApiException('Server phản hồi quá lâu. Vui lòng thử lại.');
+    } on ApiException {
+      rethrow;
     } catch (e) {
       _log('Unexpected error on Multipart POST $uri: $e');
       throw ApiException('Đã xảy ra lỗi không mong muốn: $e');
@@ -277,6 +287,8 @@ class ApiClient {
     } on TimeoutException catch (e) {
       _log('TimeoutException on Multipart PUT $uri: $e');
       throw ApiException('Server phản hồi quá lâu. Vui lòng thử lại.');
+    } on ApiException {
+      rethrow;
     } catch (e) {
       _log('Unexpected error on Multipart PUT $uri: $e');
       throw ApiException('Đã xảy ra lỗi không mong muốn: $e');

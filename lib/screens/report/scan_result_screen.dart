@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/service/plant_service.dart';
+import '../../core/service/harvest_service.dart';
 import '../../shared/ai_result_widget.dart';
 import 'create_report_screen.dart';
 
@@ -269,9 +271,35 @@ class ScanResultScreen extends StatelessWidget {
     );
 
     try {
+      String plantName = 'Cây trồng';
+      try {
+        final harvestMap = await HarvestService.getSeasonToHarvestMap();
+        for (var detail in harvestMap.values) {
+          if (detail['plotId']?.toString().toLowerCase() ==
+              plotId.toLowerCase()) {
+            final cName = detail['cropName']?.toString();
+            if (cName != null && cName.isNotEmpty) {
+              plantName = cName;
+            }
+            break;
+          }
+        }
+      } catch (_) {
+        // Bỏ qua lỗi, giữ nguyên mặc định 'Cây trồng'
+      }
+
       Map<String, dynamic> result;
       final file = File(pickedFile.path);
-      result = await PlantService.analyzePlant(file);
+      result = await PlantService.analyzePlant(
+        file,
+        farmId: farmId,
+        plotId: plotId,
+        bedId: bedId,
+        plantName:
+            '$plantName (AI CHÚ Ý QUAN TRỌNG: BẠN PHẢI DỊCH 100% CÁC TRƯỜNG description, symptoms, solutions, treatmentSteps SANG TIẾNG VIỆT)',
+        growthStage:
+            'Giai đoạn sinh trưởng (Vui lòng sử dụng Tiếng Việt cho toàn bộ câu trả lời)',
+      );
 
       if (!context.mounted) return;
       Navigator.pop(context);
@@ -295,6 +323,7 @@ class ScanResultScreen extends StatelessWidget {
     } catch (e) {
       if (!context.mounted) return;
       Navigator.pop(context);
+      HapticFeedback.heavyImpact();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Lỗi phân tích: $e')),
       );

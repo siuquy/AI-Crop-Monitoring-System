@@ -69,6 +69,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       }
     }
 
+    if (detailedDesc.contains('Triệu chứng:')) {
+      detailedDesc = detailedDesc.split('Triệu chứng:').first.trim();
+    }
+    if (detailedDesc.contains('Khuyến nghị / Giải pháp:')) {
+      detailedDesc =
+          detailedDesc.split('Khuyến nghị / Giải pháp:').first.trim();
+    }
+
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
@@ -124,6 +132,37 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   const SizedBox(height: 16),
                   _buildGeneralInfoCard(),
                   const SizedBox(height: 24),
+                  const Text(
+                    'Mô tả bệnh',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        )
+                      ],
+                    ),
+                    child: Text(
+                      detailedDesc.isEmpty
+                          ? 'Không có mô tả bệnh.'
+                          : detailedDesc,
+                      style: const TextStyle(
+                          fontSize: 15, height: 1.6, color: Colors.black87),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                   if (report.diseaseName != null &&
                       report.diseaseName!.isNotEmpty) ...[
                     _buildInfoCard(
@@ -160,36 +199,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     _buildAiResultsCard(report.aiResults!),
                     const SizedBox(height: 24),
                   ],
-                  const Text(
-                    'Mô tả chi tiết',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        )
-                      ],
-                    ),
-                    child: Text(
-                      detailedDesc.isEmpty
-                          ? 'Không có mô tả chi tiết.'
-                          : detailedDesc,
-                      style: const TextStyle(
-                          fontSize: 15, height: 1.6, color: Colors.black87),
-                    ),
-                  ),
                   if (report.ownerComment != null &&
                       report.ownerComment!.isNotEmpty) ...[
                     const SizedBox(height: 24),
@@ -359,8 +368,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   Widget _buildAiResultsCard(Map<String, dynamic> aiData) {
     final confidence = aiData['confidence'];
     final symptoms = aiData['symptoms'] as List<dynamic>?;
-    final treatment = aiData['treatment'] as List<dynamic>?;
     final aiDesc = aiData['description']?.toString();
+
+    final solutions = aiData['solutions'] as List<dynamic>? ?? [];
+    final treatmentSteps = aiData['treatmentSteps'] as List<dynamic>? ?? [];
+    final treatment = [...solutions, ...treatmentSteps];
+
+    final weatherData = aiData['weatherDataUsed'] as Map<String, dynamic>?;
+    final iotData = aiData['iotDataUsed'] as Map<String, dynamic>?;
 
     return Container(
       width: double.infinity,
@@ -444,7 +459,34 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               aiDesc.isNotEmpty &&
               (symptoms == null || symptoms.isEmpty))
             Text(aiDesc,
-                style: const TextStyle(color: Colors.black87, height: 1.5))
+                style: const TextStyle(color: Colors.black87, height: 1.5)),
+          if (weatherData != null || iotData != null) ...[
+            const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 8),
+            const Text('Môi trường lúc ghi nhận:',
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87)),
+            const SizedBox(height: 8),
+            if (weatherData != null) ...[
+              Text(
+                  '• Nhiệt độ: ${weatherData['temperature'] ?? '-'}°C, Độ ẩm: ${weatherData['humidity'] ?? '-'}%',
+                  style: const TextStyle(color: Colors.black87, height: 1.4)),
+              if (weatherData['condition'] != null)
+                Text('• Thời tiết: ${weatherData['condition']}',
+                    style: const TextStyle(color: Colors.black87, height: 1.4)),
+            ],
+            if (iotData != null) ...[
+              if (iotData['soilMoisture'] != null)
+                Text('• Độ ẩm đất (IoT): ${iotData['soilMoisture']}%',
+                    style: const TextStyle(color: Colors.black87, height: 1.4)),
+              if (iotData['lightIntensity'] != null)
+                Text('• Ánh sáng (IoT): ${iotData['lightIntensity']} lux',
+                    style: const TextStyle(color: Colors.black87, height: 1.4)),
+            ],
+          ],
         ],
       ),
     );

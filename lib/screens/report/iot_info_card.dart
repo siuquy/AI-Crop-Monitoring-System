@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/service/bed_service.dart';
-import '../../core/service/iot_service.dart';
+import '../../core/service/api_client.dart';
 
 class IotInfoCard extends StatefulWidget {
   final String? bedId;
@@ -39,15 +39,7 @@ class _IotInfoCardState extends State<IotInfoCard> {
     }
 
     try {
-      final results = await Future.wait([
-        BedService.getBedMap(),
-        IotService.getDevices(),
-        IotService.getIotDatas(),
-      ]);
-
-      final Map<String, dynamic> bedMap = results[0] as Map<String, dynamic>;
-      final List<dynamic> devices = results[1] as List<dynamic>;
-      final List<dynamic> allIotData = results[2] as List<dynamic>;
+      final bedMap = await BedService.getBedMap();
 
       // 1. Tìm tên luống
       final bedInfo = bedMap[widget.bedId];
@@ -55,26 +47,50 @@ class _IotInfoCardState extends State<IotInfoCard> {
         _bedName = bedInfo['bedName']?.toString();
       }
 
-      // 2. Tìm thiết bị và dữ liệu IoT mới nhất
-      try {
-        final device = devices.firstWhere(
-          (d) => d.bedId?.toLowerCase() == widget.bedId?.toLowerCase(),
-        );
-        _device = device;
-
-        final deviceDatas =
-            allIotData.where((d) => d.deviceId == device.deviceId).toList();
-        if (deviceDatas.isNotEmpty) {
-          deviceDatas.sort((a, b) => (b.recordedAt ?? DateTime(0))
-              .compareTo(a.recordedAt ?? DateTime(0)));
-          _latestData = deviceDatas.first;
+      // 2. Tìm thiết bị và dữ liệu IoT thông qua API IotDevices theo BedId
+      final deviceRes =
+          await ApiClient.instance.get('/api/IotDevices?bedId=${widget.bedId}');
+      if (deviceRes != null &&
+          deviceRes['success'] == true &&
+          deviceRes['data'] != null) {
+        final data = deviceRes['data'];
+        if (data is List && data.isNotEmpty) {
+          _device = IotDevice.fromJson(data.first as Map<String, dynamic>);
+        } else if (data is Map<String, dynamic>) {
+          _device = IotDevice.fromJson(data);
         }
-      } on StateError {
-        _error = 'Khu vực này chưa có thiết bị đo môi trường.';
+
+        if (_device != null && _device!.deviceId.isNotEmpty) {
+          final dataRes = await ApiClient.instance
+              .get('/api/IotDatas?deviceId=${_device!.deviceId}');
+          if (dataRes != null &&
+              dataRes['success'] == true &&
+              dataRes['data'] != null) {
+            final dData = dataRes['data'];
+            List<IotData> parsedDatas = [];
+            if (dData is List) {
+              parsedDatas = dData
+                  .map((d) => IotData.fromJson(d as Map<String, dynamic>))
+                  .toList();
+            } else if (dData is Map<String, dynamic>) {
+              parsedDatas = [IotData.fromJson(dData)];
+            }
+            if (parsedDatas.isNotEmpty) {
+              parsedDatas.sort((a, b) => (b.recordedAt ?? DateTime(0))
+                  .compareTo(a.recordedAt ?? DateTime(0)));
+              _latestData = parsedDatas.first;
+            }
+          }
+        }
       }
+    } on ApiException catch (e) {
+      if (e.statusCode != 404) {
+        debugPrint('Lỗi API khi tải dữ liệu cho IotInfoCard: $e');
+      }
+      _error = null;
     } catch (e) {
       debugPrint('Lỗi khi tải dữ liệu cho IotInfoCard: $e');
-      _error = 'Lỗi khi tải dữ liệu IoT.';
+      _error = null;
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

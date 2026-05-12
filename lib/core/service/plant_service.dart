@@ -4,10 +4,24 @@ import 'ai_service.dart';
 
 class PlantService {
   /// Gọi API AI để phân tích bệnh của cây trồng dựa trên hình ảnh
-  static Future<Map<String, dynamic>> analyzePlant(File imageFile) async {
+  static Future<Map<String, dynamic>> analyzePlant(
+    File imageFile, {
+    String? plantName,
+    String? farmId,
+    String? plotId,
+    String? bedId,
+    String? growthStage,
+  }) async {
     try {
       // Chuyển hướng sang AIService để đồng bộ format dữ liệu chuẩn cho UI
-      return await AIService.analyzePlantImage(imageFile);
+      return await AIService.analyzePlantImage(
+        imageFile,
+        plantName: plantName,
+        farmId: farmId,
+        plotId: plotId,
+        bedId: bedId,
+        growthStage: growthStage,
+      );
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Lỗi phân tích hình ảnh AI: $e');

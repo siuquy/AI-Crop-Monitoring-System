@@ -1,27 +1,79 @@
 import 'package:flutter/material.dart';
 
-class AiResultWidget extends StatelessWidget {
+class AiResultWidget extends StatefulWidget {
   final Map<String, dynamic> aiData;
 
   const AiResultWidget({super.key, required this.aiData});
 
   @override
-  Widget build(BuildContext context) {
-    final String diseaseName = aiData['diseaseName'] ??
-        aiData['name'] ??
-        aiData['Tên bệnh'] ??
-        'Không rõ';
-    final double confidence = (aiData['confidence'] is num)
-        ? (aiData['confidence'] as num).toDouble()
-        : 0.0;
-    final bool isHealthy = aiData['isHealthy'] ?? false;
-    final String description = aiData['description'] ??
-        aiData['Description'] ??
-        'Không có mô tả chi tiết.';
-    final String commonName = aiData['commonName'] ?? '';
+  State<AiResultWidget> createState() => _AiResultWidgetState();
+}
 
-    final List<String> symptoms = List<String>.from(aiData['symptoms'] ?? []);
-    final List<String> treatment = List<String>.from(aiData['treatment'] ?? []);
+class _AiResultWidgetState extends State<AiResultWidget>
+    with SingleTickerProviderStateMixin {
+  AnimationController? _controller;
+  Animation<Color?>? _colorAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    final bool isHealthy = (widget.aiData['severity']?.toString() ?? 'none')
+                .toLowerCase() ==
+            'none' ||
+        (widget.aiData['disease']?.toString() ?? 'Không rõ').toLowerCase() ==
+            'khỏe mạnh';
+
+    if (!isHealthy) {
+      _controller = AnimationController(
+        duration: const Duration(milliseconds: 800),
+        vsync: this,
+      )..repeat(reverse: true);
+      _colorAnimation =
+          ColorTween(begin: Colors.red.shade600, end: Colors.orange.shade700)
+              .animate(_controller!);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Sử dụng cấu trúc dữ liệu gốc từ API
+    final String diseaseName =
+        widget.aiData['disease']?.toString() ?? 'Không rõ';
+    final double confidence = (widget.aiData['confidence'] is num)
+        ? (widget.aiData['confidence'] as num).toDouble()
+        : 0.0;
+    final String severity = widget.aiData['severity']?.toString() ?? 'none';
+    // Tự suy luận cây có khỏe mạnh không dựa trên mức độ nghiêm trọng
+    final bool isHealthy = severity.toLowerCase() == 'none' ||
+        diseaseName.toLowerCase() == 'khỏe mạnh';
+    final String description =
+        widget.aiData['description']?.toString() ?? 'Không có mô tả chi tiết.';
+
+    final List<String> symptoms = (widget.aiData['symptoms'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        [];
+    final List<String> solutions =
+        (widget.aiData['solutions'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            [];
+    final List<String> treatmentSteps =
+        (widget.aiData['treatmentSteps'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            [];
+    final List<String> treatment = [...solutions, ...treatmentSteps];
+
+    final weatherData =
+        widget.aiData['weatherDataUsed'] as Map<String, dynamic>?;
+    final iotData = widget.aiData['iotDataUsed'] as Map<String, dynamic>?;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -32,11 +84,20 @@ class AiResultWidget extends StatelessWidget {
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: ListTile(
-            leading: Icon(
-              isHealthy ? Icons.check_circle : Icons.warning_rounded,
-              color: isHealthy ? Colors.green : Colors.red,
-              size: 40,
-            ),
+            leading: isHealthy || _colorAnimation == null
+                ? Icon(
+                    isHealthy ? Icons.check_circle : Icons.eco_rounded,
+                    color: isHealthy ? Colors.green : Colors.red,
+                    size: 40,
+                  )
+                : AnimatedBuilder(
+                    animation: _colorAnimation!,
+                    builder: (context, child) => Transform.rotate(
+                      angle: 0.8, // Nghiêng lá tạo cảm giác héo úa
+                      child: Icon(Icons.eco_rounded,
+                          color: _colorAnimation!.value, size: 40),
+                    ),
+                  ),
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -45,15 +106,6 @@ class AiResultWidget extends StatelessWidget {
                   style: const TextStyle(
                       fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                if (commonName.isNotEmpty &&
-                    commonName != 'Không có tên thông thường')
-                  Text(
-                    commonName,
-                    style: const TextStyle(
-                        fontSize: 14,
-                        fontStyle: FontStyle.italic,
-                        color: Colors.black54),
-                  ),
               ],
             ),
             subtitle: Text(
@@ -125,6 +177,84 @@ class AiResultWidget extends StatelessWidget {
             ),
           ),
         ],
+        if (weatherData != null || iotData != null) ...[
+          const SizedBox(height: 20),
+          const Text('Dữ liệu môi trường lúc phân tích',
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal)),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.teal.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.teal.shade100),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (weatherData != null) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildMetric(
+                          Icons.thermostat,
+                          '${weatherData['temperature'] ?? '-'}°C',
+                          'Nhiệt độ (Thời tiết)',
+                          Colors.orange),
+                      _buildMetric(
+                          Icons.water_drop,
+                          '${weatherData['humidity'] ?? '-'}%',
+                          'Độ ẩm (Thời tiết)',
+                          Colors.blue),
+                    ],
+                  ),
+                  if (weatherData['condition'] != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Center(
+                        child: Text('Thời tiết: ${weatherData['condition']}',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w500)),
+                      ),
+                    ),
+                  if (iotData != null) const Divider(height: 24),
+                ],
+                if (iotData != null) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      if (iotData['soilMoisture'] != null)
+                        _buildMetric(Icons.grass, '${iotData['soilMoisture']}%',
+                            'Ẩm đất (IoT)', Colors.brown),
+                      if (iotData['lightIntensity'] != null)
+                        _buildMetric(
+                            Icons.light_mode,
+                            '${iotData['lightIntensity']} lux',
+                            'Ánh sáng (IoT)',
+                            Colors.amber),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildMetric(IconData icon, String value, String label, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 24),
+        const SizedBox(height: 4),
+        Text(value,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        Text(label,
+            style: const TextStyle(fontSize: 11, color: Colors.black54)),
       ],
     );
   }

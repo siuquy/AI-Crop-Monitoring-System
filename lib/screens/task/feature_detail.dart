@@ -84,9 +84,7 @@ class FeatureDetailScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 20),
-
                 const Center(
                   child: Text(
                     'Minh hoạ thao tác quét AI',
@@ -96,9 +94,7 @@ class FeatureDetailScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
                 const Text(
                   'Các bước thực hiện',
                   style: TextStyle(
@@ -106,9 +102,7 @@ class FeatureDetailScreen extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
                 ...List.generate(
                   feature.steps.length,
                   (index) => _StepItem(
@@ -117,9 +111,7 @@ class FeatureDetailScreen extends StatelessWidget {
                     description: feature.steps[index].description,
                   ),
                 ),
-
                 const SizedBox(height: 60),
-                
               ],
             ),
           ),
@@ -236,7 +228,7 @@ FeatureContent _getFeatureContent(FeatureType type) {
           FeatureStep(
             title: 'Phân tích AI',
             description:
-                'Giữ máy ổn định trong khoảng 3–5 giây để AI phân tích hình ảnh chính xác.',
+                'Giữ máy ổn định trong khoảng 3–5 giây để AI kết hợp phân tích hình ảnh và dữ liệu môi trường từ cảm biến (Nhiệt độ, Độ ẩm...) một cách chính xác.',
           ),
           FeatureStep(
             title: 'Báo cáo',

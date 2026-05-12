@@ -10,10 +10,11 @@ import '../../core/service/weather_service.dart';
 import '../../models/task_model.dart';
 import '../../models/worker.dart';
 import 'harvest_screen.dart';
+import 'growth_tracking_screen.dart';
 
-const Color primaryTeal = Color(0xFF4CAF50); // Chuyển sang xanh lá tươi
-const Color darkTeal = Color(0xFF388E3C); // Màu xanh lá đậm
-const Color bgColor = Color(0xFFF0F8F1); // Màu nền ám xanh nhẹ
+const Color primaryTeal = Color(0xFF4CAF50); 
+const Color darkTeal = Color(0xFF388E3C); 
+const Color bgColor = Color(0xFFF0F8F1); 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -145,6 +146,55 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     _TaskSummary(todo: todo, doing: doing, done: done),
                     const SizedBox(height: 24),
+                    Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const GrowthTrackingScreen(),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.spoke_rounded,
+                                  color: Colors.blue.shade700,
+                                  size: 28,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Theo dõi sinh trưởng', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                    SizedBox(height: 4),
+                                    Text('Kiểm tra tiến độ và tình trạng cây', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     Card(
                       elevation: 2,
                       shape: RoundedRectangleBorder(

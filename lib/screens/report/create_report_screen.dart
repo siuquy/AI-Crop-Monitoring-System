@@ -70,10 +70,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   void initState() {
     super.initState();
 
-    // Chỉ sử dụng trường 'disease' từ API AI mới
-    final plantName = widget.analysisResult['diseaseName']?.toString() ??
-        widget.analysisResult['disease']?.toString() ??
-        '';
+    final plantName = widget.analysisResult['disease']?.toString() ?? '';
 
     _imagePaths = [widget.imagePath]; // Khởi tạo với ảnh ban đầu từ AI
 
@@ -88,13 +85,14 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       aiDescription += '\n\nTriệu chứng:\n- ' +
           (widget.analysisResult['symptoms'] as List).join('\n- ');
     }
-    final treatmentList = widget.analysisResult['treatment'] ??
-        widget.analysisResult['solutions'];
-    if (treatmentList != null &&
-        treatmentList is List &&
-        treatmentList.isNotEmpty) {
+
+    final solutions = widget.analysisResult['solutions'] as List? ?? [];
+    final treatmentSteps =
+        widget.analysisResult['treatmentSteps'] as List? ?? [];
+    final combinedTreatment = [...solutions, ...treatmentSteps];
+    if (combinedTreatment.isNotEmpty) {
       aiDescription +=
-          '\n\nKhuyến nghị / Giải pháp:\n- ' + treatmentList.join('\n- ');
+          '\n\nKhuyến nghị / Giải pháp:\n- ' + combinedTreatment.join('\n- ');
     }
 
     _descriptionController = TextEditingController(text: aiDescription.trim());
@@ -204,31 +202,39 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     });
 
     try {
-      // Tối ưu: Lấy danh sách thiết bị và dữ liệu IoT chạy song song
-      final results = await Future.wait([
-        IotService.getDevices(),
-        IotService.getIotDatas(),
-      ]);
-
-      final List<dynamic> devices = results[0];
-      final List<dynamic> datas = results[1];
-
-      final device = devices.firstWhere(
-        (d) => d.bedId?.toLowerCase() == _selectedBedId?.toLowerCase(),
-        orElse: () => IotDevice(
-            deviceId: '', deviceCode: '', name: '', type: '', status: ''),
-      );
-
-      if (device.deviceId.isNotEmpty) {
-        _associatedDevice = device;
-
-        final deviceDatas =
-            datas.where((d) => d.deviceId == device.deviceId).toList();
-        if (deviceDatas.isNotEmpty) {
-          deviceDatas.sort((a, b) => (b.recordedAt ?? DateTime(0))
-              .compareTo(a.recordedAt ?? DateTime(0)));
-          _latestIotData = deviceDatas.first;
+      // Tìm thiết bị theo BedId thông qua API IotDevices
+      final deviceRes = await ApiClient.instance.get('/api/IotDevices?bedId=$_selectedBedId');
+      
+      if (deviceRes != null && deviceRes['success'] == true && deviceRes['data'] != null) {
+        final data = deviceRes['data'];
+        if (data is List && data.isNotEmpty) {
+          _associatedDevice = IotDevice.fromJson(data.first as Map<String, dynamic>);
+        } else if (data is Map<String, dynamic>) {
+          _associatedDevice = IotDevice.fromJson(data);
         }
+
+        // Lấy dữ liệu Iot Data thông qua DeviceId
+        if (_associatedDevice != null && _associatedDevice!.deviceId.isNotEmpty) {
+          final dataRes = await ApiClient.instance.get('/api/IotDatas?deviceId=${_associatedDevice!.deviceId}');
+          if (dataRes != null && dataRes['success'] == true && dataRes['data'] != null) {
+            final dData = dataRes['data'];
+            List<IotData> parsedDatas = [];
+            if (dData is List) {
+              parsedDatas = dData.map((d) => IotData.fromJson(d as Map<String, dynamic>)).toList();
+            } else if (dData is Map<String, dynamic>) {
+              parsedDatas = [IotData.fromJson(dData)];
+            }
+            
+            if (parsedDatas.isNotEmpty) {
+              parsedDatas.sort((a, b) => (b.recordedAt ?? DateTime(0)).compareTo(a.recordedAt ?? DateTime(0)));
+              _latestIotData = parsedDatas.first;
+            }
+          }
+        }
+      }
+    } on ApiException catch (e) {
+      if (e.statusCode != 404) {
+        debugPrint('Lỗi API tải dữ liệu IoT: $e');
       }
     } catch (e) {
       debugPrint('Lỗi tải dữ liệu IoT: $e');
@@ -340,6 +346,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _buildFormSection(),
+              const SizedBox(height: 16),
               _buildDropdownSection(),
               const SizedBox(height: 16),
               _buildImageSection(),
@@ -347,7 +355,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
               _buildAiResultSection(),
               const SizedBox(height: 16),
               _buildIotSection(),
-              _buildFormSection(),
               const SizedBox(height: 24),
             ],
           ),
@@ -796,25 +803,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                   _selectedReportType = newValue;
                 });
               }
-            },
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _descriptionController,
-            keyboardType: TextInputType.multiline,
-            textCapitalization: TextCapitalization.sentences,
-            decoration:
-                _inputDecoration('Mô tả chi tiết', Icons.description_rounded)
-                    .copyWith(
-              alignLabelWithHint: true,
-              hintText: 'Nhập mô tả tình trạng thực tế...',
-            ),
-            maxLines: 5,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Vui lòng nhập mô tả chi tiết';
-              }
-              return null;
             },
           ),
         ],
