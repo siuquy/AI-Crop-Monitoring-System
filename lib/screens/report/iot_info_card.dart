@@ -129,14 +129,15 @@ class _IotInfoCardState extends State<IotInfoCard> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
+        border: Border.all(color: Colors.blue.shade50, width: 1.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -145,23 +146,32 @@ class _IotInfoCardState extends State<IotInfoCard> {
           children: [
             Row(
               children: [
-                Icon(Icons.sensors_rounded, color: Colors.blue.shade600),
-                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.sensors_rounded,
+                      color: Colors.blue.shade600, size: 20),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                       _bedName != null
                           ? 'Môi trường - $_bedName'
                           : 'Dữ liệu môi trường (IoT)',
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold)),
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87)),
                 ),
               ],
             ),
             const SizedBox(height: 16),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildIotMetric(Icons.thermostat,
                     '${_latestData!.temperature}°C', 'Nhiệt độ', Colors.orange),
@@ -170,17 +180,29 @@ class _IotInfoCardState extends State<IotInfoCard> {
                 _buildIotMetric(Icons.grass, '${_latestData!.soilMoisture}%',
                     'Ẩm đất', Colors.brown),
                 _buildIotMetric(Icons.light_mode, '${_latestData!.light}',
-                    'Ánh sáng', Colors.amber),
+                    'Ánh sáng', Colors.amber.shade600),
               ],
             ),
             if (_device != null) ...[
-              const Divider(height: 24),
-              Text(
-                  'Thiết bị: ${_device!.name} - Cập nhật: ${_latestData!.recordedAt != null ? DateFormat('dd/MM/yyyy HH:mm').format(_latestData!.recordedAt!.toLocal()) : 'N/A'}',
-                  style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                      fontStyle: FontStyle.italic)),
+              const SizedBox(height: 16),
+              const Divider(height: 1, color: Colors.black12),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(Icons.access_time_rounded,
+                      size: 14, color: Colors.grey.shade500),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '${_device!.name} • ${_latestData!.recordedAt != null ? DateFormat('dd/MM/yyyy HH:mm').format(_latestData!.recordedAt!.toLocal()) : 'N/A'}',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
             ]
           ],
         ),
@@ -190,15 +212,36 @@ class _IotInfoCardState extends State<IotInfoCard> {
 
   Widget _buildIotMetric(
       IconData icon, String value, String label, Color color) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(height: 6),
-        Text(value,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        Text(label,
-            style: const TextStyle(fontSize: 12, color: Colors.black54)),
-      ],
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 8),
+            Text(value,
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: color.withOpacity(0.9))),
+            const SizedBox(height: 2),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black.withOpacity(0.6)),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          ],
+        ),
+      ),
     );
   }
 }

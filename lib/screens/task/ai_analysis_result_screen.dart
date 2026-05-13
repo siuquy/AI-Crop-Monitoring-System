@@ -258,7 +258,6 @@ class _AiAnalysisResultScreenState extends State<AiAnalysisResultScreen>
             const SizedBox(height: 16),
             if (weatherData != null) ...[
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildMetric(
                       Icons.thermostat,
@@ -274,17 +273,19 @@ class _AiAnalysisResultScreenState extends State<AiAnalysisResultScreen>
               ),
               if (weatherData['condition'] != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 12.0),
+                  padding: const EdgeInsets.only(top: 16.0),
                   child: Center(
                     child: Text('Thời tiết: ${weatherData['condition']}',
-                        style: const TextStyle(fontWeight: FontWeight.w500)),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade700,
+                            fontSize: 13)),
                   ),
                 ),
-              if (iotData != null) const Divider(height: 24),
+              if (iotData != null) const Divider(height: 32),
             ],
             if (iotData != null) ...[
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   if (iotData['soilMoisture'] != null)
                     _buildMetric(Icons.grass, '${iotData['soilMoisture']}%',
@@ -294,7 +295,7 @@ class _AiAnalysisResultScreenState extends State<AiAnalysisResultScreen>
                         Icons.light_mode,
                         '${iotData['lightIntensity']} lux',
                         'Ánh sáng',
-                        Colors.amber),
+                        Colors.amber.shade600),
                 ],
               ),
             ],
@@ -305,15 +306,36 @@ class _AiAnalysisResultScreenState extends State<AiAnalysisResultScreen>
   }
 
   Widget _buildMetric(IconData icon, String value, String label, Color color) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(height: 4),
-        Text(value,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        Text(label,
-            style: const TextStyle(fontSize: 12, color: Colors.black54)),
-      ],
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 8),
+            Text(value,
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: color.withOpacity(0.9))),
+            const SizedBox(height: 2),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black.withOpacity(0.6)),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          ],
+        ),
+      ),
     );
   }
 

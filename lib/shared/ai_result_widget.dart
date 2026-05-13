@@ -197,44 +197,44 @@ class _AiResultWidgetState extends State<AiResultWidget>
               children: [
                 if (weatherData != null) ...[
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _buildMetric(
                           Icons.thermostat,
                           '${weatherData['temperature'] ?? '-'}°C',
-                          'Nhiệt độ (Thời tiết)',
+                          'Nhiệt độ',
                           Colors.orange),
                       _buildMetric(
                           Icons.water_drop,
                           '${weatherData['humidity'] ?? '-'}%',
-                          'Độ ẩm (Thời tiết)',
+                          'Độ ẩm',
                           Colors.blue),
                     ],
                   ),
                   if (weatherData['condition'] != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
+                      padding: const EdgeInsets.only(top: 12.0),
                       child: Center(
                         child: Text('Thời tiết: ${weatherData['condition']}',
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w500)),
+                            style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey.shade700,
+                                fontSize: 13)),
                       ),
                     ),
-                  if (iotData != null) const Divider(height: 24),
+                  if (iotData != null) const Divider(height: 32),
                 ],
                 if (iotData != null) ...[
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       if (iotData['soilMoisture'] != null)
                         _buildMetric(Icons.grass, '${iotData['soilMoisture']}%',
-                            'Ẩm đất (IoT)', Colors.brown),
+                            'Ẩm đất', Colors.brown),
                       if (iotData['lightIntensity'] != null)
                         _buildMetric(
                             Icons.light_mode,
                             '${iotData['lightIntensity']} lux',
-                            'Ánh sáng (IoT)',
-                            Colors.amber),
+                            'Ánh sáng',
+                            Colors.amber.shade600),
                     ],
                   ),
                 ],
@@ -247,15 +247,36 @@ class _AiResultWidgetState extends State<AiResultWidget>
   }
 
   Widget _buildMetric(IconData icon, String value, String label, Color color) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 24),
-        const SizedBox(height: 4),
-        Text(value,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        Text(label,
-            style: const TextStyle(fontSize: 11, color: Colors.black54)),
-      ],
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 8),
+            Text(value,
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: color.withOpacity(0.9))),
+            const SizedBox(height: 2),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black.withOpacity(0.6)),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          ],
+        ),
+      ),
     );
   }
 }
