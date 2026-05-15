@@ -91,10 +91,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (report.imageUrl != null && report.imageUrl!.isNotEmpty)
-              _buildImageHeader(report.imageUrl!)
-            else
-              const SizedBox.shrink(),
+            _buildImageHeader(report.imageUrls, report.imageUrl),
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
@@ -247,41 +244,88 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
   }
 
-  Widget _buildImageHeader(String imageUrl) {
-    if (imageUrl.startsWith('assets/')) {
-      return Container(
-        width: double.infinity,
-        height: 260,
-        decoration: BoxDecoration(color: Colors.grey.shade200),
-        child: Image.asset(
-          imageUrl,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) =>
-              const Icon(Icons.broken_image, size: 64, color: Colors.grey),
-        ),
-      );
-    }
+  Widget _buildImageHeader(List<String> imageUrls, String? singleImageUrl) {
+    final List<String> urlsToDisplay = imageUrls.isNotEmpty
+        ? imageUrls
+        : (singleImageUrl != null && singleImageUrl.isNotEmpty
+            ? [singleImageUrl]
+            : []);
 
-    final String finalImageUrl = imageUrl.startsWith('http')
-        ? imageUrl
-        : '${ApiConfig.baseUrl.replaceAll(RegExp(r'/$'), '')}/${imageUrl.replaceAll(RegExp(r'^/'), '')}';
+    if (urlsToDisplay.isEmpty) return const SizedBox.shrink();
 
-    return Container(
-      width: double.infinity,
+    return SizedBox(
       height: 260,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-      ),
-      child: Image.network(
-        finalImageUrl,
-        fit: BoxFit.cover,
-        loadingBuilder: (context, child, loadingProgress) =>
-            loadingProgress == null
-                ? child
-                : const Center(
-                    child: CircularProgressIndicator(color: primaryTeal)),
-        errorBuilder: (context, error, stackTrace) =>
-            const Icon(Icons.broken_image, size: 64, color: Colors.grey),
+      child: PageView.builder(
+        itemCount: urlsToDisplay.length,
+        itemBuilder: (context, index) {
+          final String imageUrl = urlsToDisplay[index];
+
+          if (imageUrl.startsWith('assets/')) {
+            return Container(
+              width: double.infinity,
+              decoration: BoxDecoration(color: Colors.grey.shade200),
+              child: Image.asset(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const Icon(
+                    Icons.broken_image,
+                    size: 64,
+                    color: Colors.grey),
+              ),
+            );
+          }
+
+          final String finalImageUrl = imageUrl.startsWith('http')
+              ? imageUrl
+              : '${ApiConfig.baseUrl.replaceAll(RegExp(r'/$'), '')}/${imageUrl.replaceAll(RegExp(r'^/'), '')}';
+
+          // Mã hóa URL để tránh lỗi với đường dẫn chứa khoảng trắng (VD: %20)
+          final safeUrl = Uri.encodeFull(finalImageUrl.replaceAll(r'\', '/'));
+
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Container(
+                decoration: BoxDecoration(color: Colors.grey.shade200),
+                child: Image.network(
+                  safeUrl,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) =>
+                      loadingProgress == null
+                          ? child
+                          : const Center(
+                              child: CircularProgressIndicator(
+                                  color: primaryTeal)),
+                  errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.broken_image,
+                      size: 64,
+                      color: Colors.grey),
+                ),
+              ),
+              if (urlsToDisplay.length > 1)
+                Positioned(
+                  bottom: 16,
+                  right: 16,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${index + 1}/${urlsToDisplay.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -7,7 +7,7 @@ import '../../core/service/api_client.dart';
 import '../../core/service/farm_service.dart';
 import '../../core/service/plot_service.dart';
 import '../../core/service/bed_service.dart';
-import '../../core/service/harvest_service.dart';
+import '../../core/service/season_service.dart';
 import '../../shared/ai_result_widget.dart';
 import '../../core/service/worker_service.dart';
 import '../../core/service/iot_service.dart';
@@ -56,7 +56,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   Map<String, String> _farmMap = {};
   Map<String, Map<String, dynamic>> _plotMap = {};
   Map<String, Map<String, dynamic>> _bedMap = {};
-  Map<String, dynamic> _harvestMap = {};
+  Map<String, Map<String, dynamic>> _seasonMap = {};
   List<Worker> _owners = [];
   Map<String, String> _seasonOptions = {};
 
@@ -121,13 +121,13 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         FarmService.getFarmMap(),
         PlotService.getPlotMap(),
         BedService.getBedMap(),
-        HarvestService.getSeasonToHarvestMap(),
+        SeasonService.getSeasonMap(),
       ]);
 
       _farmMap = results[0] as Map<String, String>;
       _plotMap = results[1] as Map<String, Map<String, dynamic>>;
       _bedMap = results[2] as Map<String, Map<String, dynamic>>;
-      _harvestMap = results[3] as Map<String, dynamic>;
+      _seasonMap = results[3] as Map<String, Map<String, dynamic>>;
 
       // Tạm thời set cứng Owner vì Worker không gọi được API Staff (Lỗi 404/403)
       _owners = [
@@ -140,11 +140,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         )
       ];
 
-      for (var detail in _harvestMap.values) {
+      for (var detail in _seasonMap.values) {
         final sId = detail['seasonId']?.toString();
         if (sId != null) {
-          final cropName = detail['cropName']?.toString() ?? 'Mùa vụ $sId';
-          _seasonOptions[sId] = cropName;
+          final seasonName = detail['seasonName']?.toString() ?? 'Mùa vụ $sId';
+          _seasonOptions[sId] = seasonName;
         }
       }
 
@@ -163,11 +163,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       _selectedPlotId = findKey(_plotMap.keys, _selectedPlotId);
       _selectedBedId = findKey(_bedMap.keys, _selectedBedId);
 
-      // harvestMap chỉ chứa plotId, không chứa bedId, nên đối chiếu theo plotId
-      if (_selectedSeasonId == null && _selectedPlotId != null) {
-        for (var detail in _harvestMap.values) {
-          if (detail['plotId']?.toString().toLowerCase() ==
-              _selectedPlotId?.toLowerCase()) {
+      // Tự động chọn mùa vụ đầu tiên thuộc trang trại đang chọn nếu chưa có
+      if (_selectedSeasonId == null && _selectedFarmId != null) {
+        for (var detail in _seasonMap.values) {
+          if (detail['farmId']?.toString().toLowerCase() ==
+              _selectedFarmId?.toLowerCase()) {
             _selectedSeasonId = detail['seasonId']?.toString();
             break;
           }
@@ -295,6 +295,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         images: _imagePaths
             .map((path) => File(path))
             .toList(), // Truyền danh sách ảnh
+        diseaseName: widget.analysisResult['disease']?.toString(),
         plotId: _selectedPlotId,
         bedId: _selectedBedId,
         aiResults: widget.analysisResult,

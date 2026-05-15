@@ -1,15 +1,16 @@
 import 'api_client.dart';
+import 'package:flutter/foundation.dart';
 
 class PlotService {
   static Future<Map<String, Map<String, dynamic>>> getPlotMap() async {
     try {
       final response = await ApiClient.instance.get('/api/Plots');
       final map = <String, Map<String, dynamic>>{};
-      
+
       if (response != null && response['success'] == true) {
         final data = response['data'] as List<dynamic>;
         for (var item in data) {
-          final id = item['plotId']?.toString();
+          final id = item['plotId']?.toString() ?? item['id']?.toString();
           if (id != null) {
             map[id] = item as Map<String, dynamic>;
           }
@@ -17,6 +18,7 @@ class PlotService {
       }
       return map;
     } catch (e) {
+      if (kDebugMode) debugPrint('Lỗi tải danh sách Plot: $e');
       return {};
     }
   }

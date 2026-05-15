@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/service/api_client.dart';
 import '../../core/service/report_service.dart';
 import '../../models/report.dart';
 import '../../models/report_status.dart';
@@ -104,6 +105,7 @@ class _ReportListScreenState extends State<ReportListScreen> {
       // Lấy toàn bộ báo cáo 1 lần nếu bộ đệm trống (Backend chưa hỗ trợ phân trang)
       if (_allReports.isEmpty) {
         _allReports = await ReportService.getReports();
+        _allReports.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       }
 
       // Áp dụng bộ lọc trạng thái
@@ -113,7 +115,19 @@ class _ReportListScreenState extends State<ReportListScreen> {
 
       // Phân trang nội bộ để tải từ từ các file đính kèm
       final startIndex = (_page - 1) * _limit;
-      final newReports = filteredReports.skip(startIndex).take(_limit).toList();
+      var newReports = filteredReports.skip(startIndex).take(_limit).toList();
+
+      // Tải ảnh cho các báo cáo vừa được cắt ra
+      newReports = await ReportService.enrichReportsWithAttachments(newReports);
+
+      // Cập nhật lại vào _allReports để sau này không phải tải lại ảnh nếu chuyển qua lại tab
+      for (var i = 0; i < newReports.length; i++) {
+        final indexInAll =
+            _allReports.indexWhere((r) => r.id == newReports[i].id);
+        if (indexInAll != -1) {
+          _allReports[indexInAll] = newReports[i];
+        }
+      }
 
       if (newReports.length < _limit ||
           startIndex + newReports.length >= filteredReports.length) {
@@ -361,19 +375,30 @@ class _ReportListItem extends StatelessWidget {
         );
       }
 
-      // Handle both absolute and relative URLs from the server
-      final String finalImageUrl = imageUrl.startsWith('http')
-          ? imageUrl
-          : '${ApiConfig.baseUrl.replaceAll(RegExp(r'/$'), '')}/${imageUrl.replaceAll(RegExp(r'^/'), '')}';
+      final String normalizedUrl = imageUrl.replaceAll(r'\', '/');
+      final String finalImageUrl = normalizedUrl.startsWith('http')
+          ? normalizedUrl
+          : '${ApiConfig.baseUrl.replaceAll(RegExp(r'/$'), '')}/${normalizedUrl.replaceAll(RegExp(r'^/'), '')}';
+
+      // Đảm bảo URL hợp lệ kể cả khi chứa khoảng trắng hoặc ký tự đặc biệt
+      final String safeUrl = Uri.encodeFull(finalImageUrl);
+
+      debugPrint('[DEBUG_IMAGE_URL] $safeUrl');
 
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: Image.network(
-          finalImageUrl,
+          safeUrl,
           width: 70,
           height: 70,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+          headers: ApiClient.instance.authToken != null
+              ? {'Authorization': 'Bearer ${ApiClient.instance.authToken}'}
+              : null,
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint('[DEBUG_IMAGE_ERROR] $safeUrl - Error: $error');
+            return _buildPlaceholder();
+          },
         ),
       );
     }

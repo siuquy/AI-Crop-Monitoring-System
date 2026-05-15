@@ -6,15 +6,16 @@ import 'package:flutter/material.dart';
 import '../../core/service/task_service.dart';
 import '../../screens/task/task_detail_screen.dart';
 import '../../core/service/worker_service.dart';
+import '../../core/service/farm_service.dart';
 import '../../core/service/weather_service.dart';
 import '../../models/task_model.dart';
 import '../../models/worker.dart';
 import 'harvest_screen.dart';
 import 'growth_tracking_screen.dart';
 
-const Color primaryTeal = Color(0xFF4CAF50); 
-const Color darkTeal = Color(0xFF388E3C); 
-const Color bgColor = Color(0xFFF0F8F1); 
+const Color primaryTeal = Color(0xFF4CAF50);
+const Color darkTeal = Color(0xFF388E3C);
+const Color bgColor = Color(0xFFF0F8F1);
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,6 +29,10 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isLoading = true;
   String? errorMessage;
   Worker? _currentWorker;
+
+  Map<String, String> _farmMap = {};
+  String? _selectedFarmId;
+  String? _selectedFarmName;
 
   int todo = 0;
   int doing = 0;
@@ -50,10 +55,12 @@ class _HomeScreenState extends State<HomeScreen> {
       final results = await Future.wait([
         TaskService.getTasks(forceRefresh: forceRefresh),
         WorkerService.getCurrentWorker(),
+        FarmService.getFarmMap(),
       ]);
 
       final data = results[0] as List<TaskModel>;
       final worker = results[1] as Worker;
+      final farmMap = results[2] as Map<String, String>;
 
       final todoCount =
           data.where((e) => e.status == TaskStatus.pending).length;
@@ -68,6 +75,11 @@ class _HomeScreenState extends State<HomeScreen> {
         doing = doingCount;
         done = doneCount;
         _currentWorker = worker;
+        _farmMap = farmMap;
+        if (_farmMap.isNotEmpty && _selectedFarmId == null) {
+          _selectedFarmId = _farmMap.keys.first;
+          _selectedFarmName = _farmMap.values.first;
+        }
         isLoading = false;
       });
     } catch (e) {
@@ -77,6 +89,88 @@ class _HomeScreenState extends State<HomeScreen> {
         errorMessage = e.toString();
       });
     }
+  }
+
+  void _showFarmPicker() {
+    if (_farmMap.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không có dữ liệu trang trại')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Chọn trang trại',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.4,
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _farmMap.length,
+                  separatorBuilder: (_, __) =>
+                      const Divider(height: 1, indent: 20, endIndent: 20),
+                  itemBuilder: (context, index) {
+                    final key = _farmMap.keys.elementAt(index);
+                    final value = _farmMap.values.elementAt(index);
+                    final isSelected = key == _selectedFarmId;
+                    return ListTile(
+                      title: Text(
+                        value,
+                        style: TextStyle(
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.normal,
+                          color: isSelected ? primaryTeal : Colors.black87,
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? const Icon(Icons.check, color: primaryTeal)
+                          : null,
+                      onTap: () {
+                        setState(() {
+                          _selectedFarmId = key;
+                          _selectedFarmName = value;
+                        });
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   String _mapStatus(TaskStatus status) {
@@ -132,9 +226,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: Column(
                   children: [
-                    _Header(worker: _currentWorker),
+                    _Header(
+                      worker: _currentWorker,
+                      farmName: _selectedFarmName,
+                      onAvatarTap: _showFarmPicker,
+                    ),
                     const SizedBox(height: 24),
-                    const _WeatherCard(),
+                    _WeatherCard(farmId: _selectedFarmId),
                   ],
                 ),
               ),
@@ -156,7 +254,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const GrowthTrackingScreen(),
+                              builder: (context) =>
+                                  const GrowthTrackingScreen(),
                             ),
                           );
                         },
@@ -182,13 +281,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('Theo dõi sinh trưởng', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                    Text('Theo dõi sinh trưởng',
+                                        style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold)),
                                     SizedBox(height: 4),
-                                    Text('Kiểm tra tiến độ và tình trạng cây', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                                    Text('Kiểm tra tiến độ và tình trạng cây',
+                                        style: TextStyle(
+                                            fontSize: 13, color: Colors.grey)),
                                   ],
                                 ),
                               ),
-                              const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                              const Icon(Icons.chevron_right_rounded,
+                                  color: Colors.grey),
                             ],
                           ),
                         ),
@@ -231,13 +336,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('Báo cáo Thu hoạch', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                    Text('Báo cáo Thu hoạch',
+                                        style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold)),
                                     SizedBox(height: 4),
-                                    Text('Ghi nhận sản lượng nông sản', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                                    Text('Ghi nhận sản lượng nông sản',
+                                        style: TextStyle(
+                                            fontSize: 13, color: Colors.grey)),
                                   ],
                                 ),
                               ),
-                              const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                              const Icon(Icons.chevron_right_rounded,
+                                  color: Colors.grey),
                             ],
                           ),
                         ),
@@ -413,7 +524,9 @@ class _TaskItemSkeletonState extends State<_TaskItemSkeleton>
 
 class _Header extends StatelessWidget {
   final Worker? worker;
-  const _Header({this.worker});
+  final String? farmName;
+  final VoidCallback? onAvatarTap;
+  const _Header({this.worker, this.farmName, this.onAvatarTap});
 
   @override
   Widget build(BuildContext context) {
@@ -423,11 +536,14 @@ class _Header extends StatelessWidget {
 
     return Row(
       children: [
-        CircleAvatar(
-          radius: 26, // Tăng kích thước avatar
-          backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
-              ? NetworkImage(avatarUrl)
-              : const AssetImage('assets/avatar.png') as ImageProvider,
+        GestureDetector(
+          onTap: onAvatarTap,
+          child: CircleAvatar(
+            radius: 26, // Tăng kích thước avatar
+            backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
+                ? NetworkImage(avatarUrl)
+                : const AssetImage('assets/avatar.png') as ImageProvider,
+          ),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -441,6 +557,28 @@ class _Header extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     color: Colors.white),
               ),
+              if (farmName != null) ...[
+                const SizedBox(height: 4),
+                GestureDetector(
+                  onTap: onAvatarTap,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.location_on,
+                          color: Colors.white70, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        farmName!,
+                        style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500),
+                      ),
+                      const Icon(Icons.arrow_drop_down,
+                          color: Colors.white70, size: 16),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -460,7 +598,8 @@ class _Header extends StatelessWidget {
 }
 
 class _WeatherCard extends StatefulWidget {
-  const _WeatherCard();
+  final String? farmId;
+  const _WeatherCard({this.farmId});
 
   @override
   State<_WeatherCard> createState() => _WeatherCardState();
@@ -477,24 +616,40 @@ class _WeatherCardState extends State<_WeatherCard> {
     _fetchWeather();
   }
 
+  @override
+  void didUpdateWidget(covariant _WeatherCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Gọi lại API nếu Worker đổi lựa chọn farmId
+    if (oldWidget.farmId != widget.farmId) {
+      _fetchWeather();
+    }
+  }
+
   Future<void> _fetchWeather() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
     try {
-      final data = await WeatherService.fetchWeather();
-      setState(() {
-        _weatherData = data;
-      });
+      // Gọi API Weather kết hợp với farmId
+      final data = await WeatherService.fetchWeather(farmId: widget.farmId);
+      if (mounted) {
+        setState(() {
+          _weatherData = data;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+        });
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

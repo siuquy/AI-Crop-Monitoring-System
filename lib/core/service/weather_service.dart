@@ -9,14 +9,21 @@ class WeatherService {
   }
 
   static Future<Map<String, dynamic>> fetchWeather({
+    String? farmId,
     double lat = 10.8231,
     double lng = 106.6297,
   }) async {
     try {
-      _log('Đang lấy thời tiết từ Backend cho Lat: $lat, Lon: $lng');
+      String endpoint;
+      if (farmId != null && farmId.isNotEmpty) {
+        endpoint = '/api/Weather/farm/$farmId/current';
+      } else {
+        endpoint = '/api/Weather/current?lat=$lat&lng=$lng';
+      }
 
-      final data = await ApiClient.instance
-          .get('/api/Weather/current?lat=$lat&lng=$lng');
+      _log('Đang lấy thời tiết từ Backend: $endpoint');
+
+      final data = await ApiClient.instance.get(endpoint);
 
       if (data != null) {
         _log('Dữ liệu thời tiết đã nhận: $data');
@@ -24,8 +31,7 @@ class WeatherService {
           'temperature': data['tempC'],
           'description': data['condition']['text'],
           'humidity': data['humidity'],
-          'windSpeed': data['windKph'] /
-              3.6, 
+          'windSpeed': data['windKph'] / 3.6,
           'icon': 'https:${data['condition']['icon']}',
           'cityName': data['location']['name'],
         };

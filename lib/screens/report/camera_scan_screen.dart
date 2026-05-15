@@ -91,11 +91,11 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     try {
       String plantName = 'Cây trồng';
       try {
-        final harvestMap = await HarvestService.getSeasonToHarvestMap();
-        for (var detail in harvestMap.values) {
-          if (detail['plotId']?.toString().toLowerCase() ==
+        final harvests = await HarvestService.getHarvests();
+        for (var h in harvests) {
+          if (h['plotId']?.toString().toLowerCase() ==
               widget.plotId.toLowerCase()) {
-            final cName = detail['cropName']?.toString();
+            final cName = h['cropName']?.toString();
             if (cName != null && cName.isNotEmpty) {
               plantName = cName;
             }

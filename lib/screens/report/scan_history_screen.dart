@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/service/scan_history_service.dart';
+import '../task/ai_analysis_result_screen.dart';
 
 class ScanHistoryScreen extends StatefulWidget {
   const ScanHistoryScreen({super.key});
@@ -48,8 +49,10 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
                     final item = _historyList[index];
                     final result =
                         item['result'] as Map<String, dynamic>? ?? {};
-                    final plantName =
-                        result['name'] ?? result['diseaseName'] ?? 'Không rõ';
+                    final plantName = result['disease'] ??
+                        result['name'] ??
+                        result['diseaseName'] ??
+                        'Không xác định';
                     final confidence = result['confidence'] != null
                         ? ((result['confidence'] as num) * 100)
                             .toStringAsFixed(1)
@@ -77,6 +80,25 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: ListTile(
+                        onTap: () {
+                          if (hasImage) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => AiAnalysisResultScreen(
+                                  image: imageFile!,
+                                  analysisData: result,
+                                ),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text(
+                                      'Không tìm thấy hình ảnh cho lịch sử này.')),
+                            );
+                          }
+                        },
                         contentPadding: const EdgeInsets.all(12),
                         leading: hasImage
                             ? ClipRRect(

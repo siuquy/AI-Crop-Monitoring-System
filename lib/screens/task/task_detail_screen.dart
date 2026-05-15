@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:acmms/models/task_model.dart';
 import 'package:acmms/core/service/task_service.dart';
-import 'package:acmms/core/service/harvest_service.dart';
+import 'package:acmms/core/service/season_service.dart';
 import 'package:acmms/core/service/bed_service.dart';
 import 'package:acmms/core/service/plot_service.dart';
 import 'package:acmms/core/service/farm_service.dart';
@@ -53,7 +53,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   bool _taskWasModified = false;
   bool _isUpdatingStatus = false;
 
-  Map<String, dynamic> _harvestMap = {};
+  Map<String, Map<String, dynamic>> _seasonMap = {};
   Map<String, Map<String, dynamic>> _bedMap = {};
   Map<String, Map<String, dynamic>> _plotMap = {};
   Map<String, String> _farmMap = {};
@@ -70,7 +70,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     try {
       final results = await Future.wait([
         TaskService.getTaskById(widget.taskId),
-        HarvestService.getSeasonToHarvestMap(),
+        SeasonService.getSeasonMap(),
         BedService.getBedMap(),
         PlotService.getPlotMap(),
         FarmService.getFarmMap(),
@@ -79,13 +79,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       final initialTask = results[0] as TaskModel;
       debugPrint(
           '[TaskDetailScreen] Initial Task fetched: ID=${initialTask.id}, Status=${initialTask.status}, Description=${initialTask.description}, BedIds=${initialTask.bedIds}, PlotIds=${initialTask.plotIds}, TimeRange=${initialTask.timeRange}');
-      _harvestMap = results[1] as Map<String, dynamic>;
+      _seasonMap = results[1] as Map<String, Map<String, dynamic>>;
       _bedMap = results[2] as Map<String, Map<String, dynamic>>;
       _plotMap = results[3] as Map<String, Map<String, dynamic>>;
       _farmMap = results[4] as Map<String, String>;
 
-      final safeHarvestMap = {
-        for (var e in _harvestMap.entries) e.key.toLowerCase(): e.value
+      final safeSeasonMap = {
+        for (var e in _seasonMap.entries) e.key.toLowerCase(): e.value
       };
       final safeBedMap = {
         for (var e in _bedMap.entries) e.key.toLowerCase(): e.value
@@ -98,8 +98,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       };
 
       // Step 3: Process and resolve names from IDs. This logic is now centralized and safer.
-      final harvestInfo = safeHarvestMap[initialTask.seasonId.toLowerCase()];
-      final cropName = harvestInfo?['cropName']?.toString() ?? 'Không rõ';
+      final seasonInfo = safeSeasonMap[initialTask.seasonId.toLowerCase()];
+      final cropName = seasonInfo?['seasonName']?.toString() ?? 'Không rõ';
 
       String bedName = 'Không rõ';
       String plotName = 'Không rõ';
@@ -150,19 +150,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           }
         }
       } else if (initialTask.seasonId.isNotEmpty) {
-        // Nếu không có plotIds nhưng có seasonId, cố gắng giải quyết tên từ harvest
-        final harvestInfo = safeHarvestMap[initialTask.seasonId.toLowerCase()];
-        if (harvestInfo != null) {
-          final currentPlotId = harvestInfo['plotId']?.toString();
-          final plotData = safePlotMap[currentPlotId?.toLowerCase() ?? ''];
-          if (plotData != null) {
-            plotName = plotData['plotName']?.toString() ?? 'Không rõ';
-            final currentFarmId = plotData['farmId']?.toString();
-            final currentFarmName =
-                safeFarmMap[currentFarmId?.toLowerCase() ?? ''];
-            if (currentFarmName != null) {
-              farmName = currentFarmName;
-            }
+        // Nếu không có plotIds nhưng có seasonId, cố gắng giải quyết tên từ season
+        final seasonInfo = safeSeasonMap[initialTask.seasonId.toLowerCase()];
+        if (seasonInfo != null) {
+          final currentFarmId = seasonInfo['farmId']?.toString();
+          final currentFarmName =
+              safeFarmMap[currentFarmId?.toLowerCase() ?? ''];
+          if (currentFarmName != null) {
+            farmName = currentFarmName;
           }
         }
       }

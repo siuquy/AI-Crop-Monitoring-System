@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../../core/service/harvest_service.dart';
-import '../../core/service/plot_service.dart';
 
 const Color primaryTeal = Color(0xFF4CAF50);
 const Color darkTeal = Color(0xFF388E3C);
@@ -23,37 +22,36 @@ class _HarvestScreenState extends State<HarvestScreen> {
   bool _isLoading = false;
   File? _image;
 
-  String? _selectedPlot;
-  String _cropName = '';
+  Map<String, dynamic>? _selectedHarvest;
   String _quantity = '';
   String _selectedUnit = 'kg';
   String _selectedQuality = 'Good';
   DateTime _harvestDate = DateTime.now();
   String _notes = '';
 
-  Map<String, Map<String, dynamic>> _plotMap = {};
-  bool _isLoadingPlots = true;
+  List<Map<String, dynamic>> _harvests = [];
+  bool _isLoadingHarvests = true;
 
   @override
   void initState() {
     super.initState();
-    _loadPlots();
+    _loadHarvests();
   }
 
-  Future<void> _loadPlots() async {
+  Future<void> _loadHarvests() async {
     try {
-      final plots = await PlotService.getPlotMap();
+      final data = await HarvestService.getHarvests();
       if (mounted) {
         setState(() {
-          _plotMap = plots;
-          _isLoadingPlots = false;
+          // Lọc ra các kế hoạch thu hoạch chưa hoàn thành
+          _harvests = data.where((h) => h['status'] != 'completed').toList();
+          _isLoadingHarvests = false;
         });
       }
     } catch (e) {
-      debugPrint('Lỗi tải danh sách lô trồng: $e');
       if (mounted) {
         setState(() {
-          _isLoadingPlots = false;
+          _isLoadingHarvests = false;
         });
       }
     }
@@ -120,8 +118,9 @@ class _HarvestScreenState extends State<HarvestScreen> {
 
     try {
       final success = await HarvestService.submitHarvest(
-        plotId: _selectedPlot ?? '',
-        cropName: _cropName,
+        plotId: _selectedHarvest?['plotId'] ?? '',
+        seasonId: _selectedHarvest?['seasonId'] ?? '',
+        cropName: _selectedHarvest?['cropName'] ?? '',
         quantity: double.tryParse(_quantity) ?? 0,
         unit: _selectedUnit,
         quality: _selectedQuality,
@@ -188,39 +187,51 @@ class _HarvestScreenState extends State<HarvestScreen> {
                 icon: Icons.info_outline,
                 child: Column(
                   children: [
-                    _isLoadingPlots
+                    _isLoadingHarvests
                         ? const Center(
                             child:
                                 CircularProgressIndicator(color: primaryTeal))
-                        : DropdownButtonFormField<String>(
+                        : DropdownButtonFormField<Map<String, dynamic>>(
                             isExpanded: true,
-                            decoration: _inputDecoration('Khu vực / Lô trồng',
-                                Icons.location_on_outlined),
-                            value: _plotMap.containsKey(_selectedPlot)
-                                ? _selectedPlot
-                                : null,
-                            items: _plotMap.entries.map((e) {
-                              final plotName =
-                                  e.value['plotName']?.toString() ??
-                                      'Lô ${e.key}';
-                              return DropdownMenuItem<String>(
-                                value: e.key,
-                                child: Text(plotName,
+                            icon: Icon(Icons.keyboard_arrow_down_rounded,
+                                color: Colors.grey.shade600),
+                            decoration: _inputDecoration('Kế hoạch thu hoạch',
+                                Icons.assignment_outlined),
+                            value: _selectedHarvest,
+                            style: const TextStyle(
+                                color: Colors.black87,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600),
+                            items: _harvests.map((h) {
+                              final label =
+                                  '${h['cropName']} - ${h['plotName']} (${h['seasonName']})';
+                              return DropdownMenuItem<Map<String, dynamic>>(
+                                value: h,
+                                child: Text(label,
                                     overflow: TextOverflow.ellipsis),
                               );
                             }).toList(),
                             onChanged: (val) =>
-                                setState(() => _selectedPlot = val),
+                                setState(() => _selectedHarvest = val),
                             validator: (val) =>
-                                val == null ? 'Vui lòng chọn khu vực' : null,
+                                val == null ? 'Vui lòng chọn kế hoạch' : null,
                           ),
                     const SizedBox(height: 16),
                     TextFormField(
+                      key: ValueKey(_selectedHarvest?['cropName'] ?? ''),
+                      initialValue: _selectedHarvest?['cropName'] ?? '',
+                      readOnly: true,
+                      style: const TextStyle(
+                          color: Colors.black87,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600),
                       decoration: _inputDecoration(
-                          'Tên giống / Cây trồng', Icons.eco_outlined),
-                      onSaved: (val) => _cropName = val ?? '',
+                              'Tên giống / Cây trồng', Icons.eco_outlined)
+                          .copyWith(
+                        fillColor: Colors.grey.shade100,
+                      ),
                       validator: (val) => val == null || val.trim().isEmpty
-                          ? 'Vui lòng nhập tên cây trồng'
+                          ? 'Vui lòng chọn kế hoạch ở trên'
                           : null,
                     ),
                   ],
@@ -241,12 +252,18 @@ class _HarvestScreenState extends State<HarvestScreen> {
                             decoration: _inputDecoration(
                                 'Sản lượng', Icons.monitor_weight_outlined),
                             keyboardType: TextInputType.number,
+                            style: const TextStyle(
+                                color: Colors.black87,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600),
                             onSaved: (val) => _quantity = val ?? '0',
                             validator: (val) {
-                              if (val == null || val.trim().isEmpty)
+                              if (val == null || val.trim().isEmpty) {
                                 return 'Bắt buộc';
-                              if (double.tryParse(val) == null)
+                              }
+                              if (double.tryParse(val) == null) {
                                 return 'Phải là số';
+                              }
                               return null;
                             },
                           ),
@@ -256,9 +273,15 @@ class _HarvestScreenState extends State<HarvestScreen> {
                           flex: 1,
                           child: DropdownButtonFormField<String>(
                             isExpanded: true,
+                            icon: Icon(Icons.keyboard_arrow_down_rounded,
+                                color: Colors.grey.shade600),
                             decoration: _inputDecoration(
                                 'Đơn vị', Icons.category_outlined),
                             value: _selectedUnit,
+                            style: const TextStyle(
+                                color: Colors.black87,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600),
                             items: ['kg', 'ton', 'basket'].map((unit) {
                               return DropdownMenuItem<String>(
                                 value: unit,
@@ -275,9 +298,15 @@ class _HarvestScreenState extends State<HarvestScreen> {
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       isExpanded: true,
+                      icon: Icon(Icons.keyboard_arrow_down_rounded,
+                          color: Colors.grey.shade600),
                       decoration: _inputDecoration(
                           'Chất lượng', Icons.verified_outlined),
                       value: _selectedQuality,
+                      style: const TextStyle(
+                          color: Colors.black87,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600),
                       items: [
                         {'id': 'Good', 'name': 'Tốt (Good)'},
                         {'id': 'Medium', 'name': 'Trung bình (Medium)'},
@@ -297,6 +326,10 @@ class _HarvestScreenState extends State<HarvestScreen> {
                       onTap: () => _selectDate(context),
                       child: IgnorePointer(
                         child: TextFormField(
+                          style: const TextStyle(
+                              color: Colors.black87,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600),
                           decoration: _inputDecoration(
                               'Ngày thu hoạch', Icons.calendar_today_outlined),
                           controller: TextEditingController(
@@ -317,6 +350,8 @@ class _HarvestScreenState extends State<HarvestScreen> {
                     TextFormField(
                       decoration: _inputDecoration(
                           'Ghi chú thêm...', Icons.edit_note_outlined),
+                      style:
+                          const TextStyle(color: Colors.black87, fontSize: 15),
                       maxLines: 3,
                       onSaved: (val) => _notes = val ?? '',
                     ),
@@ -484,22 +519,27 @@ class _HarvestScreenState extends State<HarvestScreen> {
   InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
+      labelStyle: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: Colors.grey.shade600,
+      ),
       prefixIcon: Icon(icon, color: primaryTeal),
       filled: true,
       fillColor: Colors.grey.shade50,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: primaryTeal, width: 2),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: primaryTeal.withOpacity(0.5), width: 1.5),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
   }
 }

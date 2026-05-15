@@ -314,6 +314,17 @@ class ApiClient {
                 errorJson['title'] ??
                 errorJson['error'] ??
                 errorMessage;
+
+            // Trích xuất chi tiết lỗi validation từ Backend ASP.NET Core
+            if (errorJson.containsKey('errors')) {
+              final errors = errorJson['errors'];
+              if (errors is Map) {
+                final errorDetails = errors.entries
+                    .map((e) => '${e.key}: ${e.value}')
+                    .join(' | ');
+                errorMessage = '$errorMessage Chi tiết: $errorDetails';
+              }
+            }
           }
         } catch (e) {
           _log(

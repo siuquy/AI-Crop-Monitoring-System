@@ -16,6 +16,7 @@ class Report {
   final String? seasonId;
   final String? diseaseName;
   final String? imageUrl;
+  final List<String> imageUrls;
   final DateTime createdAt;
   final DateTime? submitDate;
   final DateTime? updatedAt;
@@ -40,6 +41,7 @@ class Report {
     this.seasonId,
     this.diseaseName,
     this.imageUrl,
+    this.imageUrls = const [],
     required this.createdAt,
     this.submitDate,
     this.updatedAt,
@@ -85,16 +87,15 @@ class Report {
       try {
         parsedAiResults = jsonDecode(json['aiResultsJson']);
       } catch (e) {
-        // Bỏ qua lỗi nếu JSON không hợp lệ
       }
     }
 
-    if (parsedAiResults == null &&
-        cleanDescription != null &&
+    if (cleanDescription != null &&
         cleanDescription.contains('---AI_RESULT_JSON---')) {
       final parts = cleanDescription.split('---AI_RESULT_JSON---');
       cleanDescription = parts[0].trim();
-      if (parts.length > 1) {
+
+      if (parsedAiResults == null && parts.length > 1) {
         try {
           parsedAiResults = jsonDecode(parts[1].trim());
         } catch (e) {}
@@ -102,14 +103,21 @@ class Report {
     }
 
     String? imgUrl = json['imageUrl'];
-    if (imgUrl == null &&
-        json['attachments'] != null &&
-        json['attachments'] is List &&
-        (json['attachments'] as List).isNotEmpty) {
-      final firstAttachment = json['attachments'][0];
-      if (firstAttachment is Map) {
-        imgUrl = firstAttachment['secureUrl'] ?? firstAttachment['fileUrl'];
+    List<String> urls = [];
+
+    if (json['attachments'] != null && json['attachments'] is List) {
+      for (var attachment in json['attachments']) {
+        if (attachment is Map) {
+          final url = attachment['secureUrl'] ?? attachment['fileUrl'];
+          if (url != null) urls.add(url.toString());
+        }
       }
+    } else if (json['imageUrls'] != null && json['imageUrls'] is List) {
+      urls = (json['imageUrls'] as List).map((e) => e.toString()).toList();
+    }
+
+    if (imgUrl == null && urls.isNotEmpty) {
+      imgUrl = urls.first;
     }
 
     return Report(
@@ -137,7 +145,10 @@ class Report {
       status: status,
       workerName: json['creatorName'] ?? json['workerName'],
       imageUrl: imgUrl,
-      diseaseName: json['diseaseName'] ?? parsedAiResults?['diseaseName'],
+      imageUrls: urls,
+      diseaseName: json['diseaseName'] ??
+          parsedAiResults?['diseaseName'] ??
+          parsedAiResults?['disease'],
       ownerComment: json['ownerComment'],
       aiResults: parsedAiResults,
       aiResultsJson: json['aiResultsJson'],

@@ -1,21 +1,37 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
+import 'api_client.dart';
 
 class HarvestService {
-  static const String baseUrl = 'https://api.example.com';
-
-  static Future<Map<String, dynamic>> getSeasonToHarvestMap() async {
+  static Future<List<Map<String, dynamic>>> getHarvests() async {
     try {
-      return {};
+      final response = await ApiClient.instance.get('/api/harvests');
+      if (response != null && response['success'] == true) {
+        return List<Map<String, dynamic>>.from(response['data']);
+      }
+      return [];
     } catch (e) {
-      debugPrint('Lỗi tải danh sách mùa vụ: $e');
-      return {};
+      debugPrint('Lỗi tải danh sách Harvests: $e');
+      return [];
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getHarvestDetail(String id) async {
+    try {
+      final response = await ApiClient.instance.get('/api/harvest-details/$id');
+      if (response != null && response['success'] == true) {
+        return response['data'] as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Lỗi tải Harvest Detail: $e');
+      return null;
     }
   }
 
   static Future<bool> submitHarvest({
     required String plotId,
+    required String seasonId,
     required String cropName,
     required double quantity,
     required String unit,
@@ -25,33 +41,31 @@ class HarvestService {
     File? image,
   }) async {
     try {
-      var uri = Uri.parse('$baseUrl/api/Harvests');
-      var request = http.MultipartRequest('POST', uri);
-
-      request.fields['plotId'] = plotId;
-      request.fields['cropName'] = cropName;
-      request.fields['quantity'] = quantity.toString();
-      request.fields['unit'] = unit;
-      request.fields['quality'] = quality;
-      request.fields['harvestDate'] = harvestDate.toIso8601String();
-      request.fields['notes'] = notes;
+      final Map<String, String> fields = {
+        'plotId': plotId,
+        'seasonId': seasonId,
+        'cropName': cropName,
+        'quantity': quantity.toString(),
+        'unit': unit,
+        'quality': quality,
+        'harvestDate': harvestDate.toIso8601String(),
+        'notes': notes,
+      };
 
       if (image != null) {
-        request.files.add(
-          await http.MultipartFile.fromPath('image', image.path),
+        await ApiClient.instance.postMultipart(
+          '/api/Harvests',
+          fields: fields,
+          files: [image],
+          fileField: 'image', // Hoặc 'file' tùy API backend yêu cầu
         );
-      }
-
-      debugPrint('Đang gửi dữ liệu thu hoạch (Submitting harvest) đến: $uri');
-      var response = await request.send();
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        debugPrint('Ghi nhận thu hoạch thành công!');
-        return true;
       } else {
-        debugPrint('Lỗi server: ${response.statusCode}');
-        return false;
+        // Nếu không có ảnh thì gọi POST thông thường
+        await ApiClient.instance.post('/api/Harvests', body: fields);
       }
+
+      debugPrint('Ghi nhận thu hoạch thành công!');
+      return true;
     } catch (e) {
       debugPrint('Ngoại lệ khi gửi thu hoạch: $e');
       throw Exception('Lỗi mạng hoặc server. Vui lòng thử lại.');
