@@ -23,23 +23,35 @@ class AIService {
     try {
       final apiClient = ApiClient.instance;
 
-      final Map<String, String> fields = {};
-      if (plantName != null) fields['PlantName'] = plantName;
+      final Map<String, String> fields = {
+        'Language': 'vi',
+        'Lang': 'vi',
+        'ResponseLanguage': 'vi',
+        'Prompt':
+            'Phân tích ảnh cây trồng. Trả kết quả 100% bằng tiếng Việt. Không dùng tiếng Anh trong disease, description, symptoms, solutions, treatmentSteps, severity.',
+      };
+
+      if (plantName != null && plantName.trim().isNotEmpty) {
+        fields['PlantName'] = plantName.trim();
+      }
       if (farmId != null) fields['FarmId'] = farmId;
       if (plotId != null) fields['PlotId'] = plotId;
       if (bedId != null) fields['BedId'] = bedId;
-      if (growthStage != null) fields['GrowthStage'] = growthStage;
+      if (growthStage != null && growthStage.trim().isNotEmpty) {
+        fields['GrowthStage'] = growthStage.trim();
+      }
 
       final response = await apiClient.postMultipart(
         '/api/Plant/analyze',
-        fields: fields.isNotEmpty ? fields : null,
+        fields: fields,
         files: [image],
         fileField: 'Image',
       );
 
       if (response != null && response is Map<String, dynamic>) {
-        return response;
+        return _normalizeVietnameseResponse(response);
       }
+
       return {};
     } catch (e) {
       _log('Lỗi gọi API phân tích hình ảnh từ Backend: $e');
@@ -49,6 +61,7 @@ class AIService {
       if (errorString.contains('401')) {
         throw Exception('Hết phiên đăng nhập, vui lòng đăng nhập lại.');
       }
+
       if (errorString.contains('503') ||
           errorString.toLowerCase().contains('quá tải') ||
           errorString.toLowerCase().contains('overloaded')) {
@@ -91,23 +104,7 @@ class AIService {
             }
 
             final fixedData = jsonDecode(partialJson) as Map<String, dynamic>;
-            _log('Đã tự sửa JSON thành công: $fixedData');
-
-            return {
-              "disease": fixedData["possibleDisease"] ??
-                  fixedData["disease"] ??
-                  "Không rõ",
-              "confidence": fixedData["confidence"] ?? 0.0,
-              "description": fixedData["description"] ?? "",
-              "severity": fixedData["severity"] ?? "none",
-              "symptoms": fixedData["symptoms"] ?? [],
-              "solutions":
-                  fixedData["solutions"] ?? fixedData["treatment"] ?? [],
-              "treatmentSteps": fixedData["treatmentSteps"] ?? [],
-              "weatherDataUsed": fixedData["weatherDataUsed"],
-              "iotDataUsed": fixedData["iotDataUsed"],
-              "contextUsed": fixedData["contextUsed"],
-            };
+            return _normalizeVietnameseResponse(fixedData);
           }
         } catch (parseError) {
           _log('Không thể tự sửa JSON: $parseError');
@@ -116,6 +113,164 @@ class AIService {
 
       throw Exception('Không thể phân tích ảnh qua AI: $e');
     }
+  }
+
+  static Map<String, dynamic> _normalizeVietnameseResponse(
+      Map<String, dynamic> data) {
+    final raw = data['data'] is Map<String, dynamic>
+        ? data['data'] as Map<String, dynamic>
+        : data;
+
+    final disease = raw['disease'] ??
+        raw['possibleDisease'] ??
+        raw['plantDisease'] ??
+        raw['diseaseName'] ??
+        'Không rõ';
+
+    final confidence = _normalizeConfidence(raw['confidence']);
+
+    final description = raw['description'] ??
+        raw['desc'] ??
+        raw['detail'] ??
+        'Không có mô tả chi tiết.';
+
+    final severity = raw['severity'] ?? raw['riskLevel'] ?? 'none';
+
+    final symptoms = _toStringList(
+      raw['symptoms'] ?? raw['symptomsDetected'] ?? raw['signs'],
+    );
+
+    final solutions = _toStringList(
+      raw['solutions'] ?? raw['careSuggestions'] ?? raw['recommendations'],
+    );
+
+    final treatmentSteps = _toStringList(
+      raw['treatmentSteps'] ?? raw['treatment'] ?? raw['actions'],
+    );
+
+    return {
+      ...raw,
+      'disease': _toVietnamese(disease.toString()),
+      'confidence': confidence,
+      'description': _toVietnamese(description.toString()),
+      'severity': _toVietnameseSeverity(severity.toString()),
+      'symptoms': symptoms.map(_toVietnamese).toList(),
+      'solutions': solutions.map(_toVietnamese).toList(),
+      'treatmentSteps': treatmentSteps.map(_toVietnamese).toList(),
+      'weatherDataUsed': raw['weatherDataUsed'],
+      'iotDataUsed': raw['iotDataUsed'],
+      'contextUsed': raw['contextUsed'],
+    };
+  }
+
+  static double _normalizeConfidence(dynamic value) {
+    if (value == null) return 0.0;
+
+    if (value is num) {
+      final v = value.toDouble();
+      if (v > 1) return v / 100;
+      return v;
+    }
+
+    final parsed = double.tryParse(value.toString().replaceAll('%', '').trim());
+    if (parsed == null) return 0.0;
+    if (parsed > 1) return parsed / 100;
+    return parsed;
+  }
+
+  static List<String> _toStringList(dynamic value) {
+    if (value == null) return [];
+
+    if (value is List) {
+      return value.map((e) => e.toString()).toList();
+    }
+
+    if (value is String && value.trim().isNotEmpty) {
+      return value
+          .split(RegExp(r'\n|;|\|'))
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+
+    return [];
+  }
+
+  static String _toVietnameseSeverity(String text) {
+    final value = text.trim().toLowerCase();
+
+    switch (value) {
+      case 'none':
+      case 'healthy':
+      case 'normal':
+      case 'no disease':
+        return 'Không có';
+      case 'low':
+      case 'mild':
+      case 'minor':
+        return 'Nhẹ';
+      case 'medium':
+      case 'moderate':
+        return 'Trung bình';
+      case 'high':
+      case 'severe':
+      case 'critical':
+        return 'Nặng';
+      default:
+        return _toVietnamese(text);
+    }
+  }
+
+  static String _toVietnamese(String text) {
+    String result = text.trim();
+
+    final Map<String, String> dictionary = {
+      'Healthy': 'Khỏe mạnh',
+      'healthy': 'khỏe mạnh',
+      'Unknown': 'Không xác định',
+      'unknown': 'không xác định',
+      'No disease detected': 'Không phát hiện bệnh',
+      'Disease detected': 'Phát hiện bệnh',
+      'Leaf spot': 'Bệnh đốm lá',
+      'Powdery mildew': 'Bệnh phấn trắng',
+      'Downy mildew': 'Bệnh sương mai',
+      'Blight': 'Bệnh cháy lá',
+      'Early blight': 'Bệnh cháy lá sớm',
+      'Late blight': 'Bệnh cháy lá muộn',
+      'Rust': 'Bệnh gỉ sắt',
+      'Root rot': 'Bệnh thối rễ',
+      'Anthracnose': 'Bệnh thán thư',
+      'Bacterial wilt': 'Bệnh héo xanh vi khuẩn',
+      'Yellowing leaves': 'Lá bị vàng',
+      'brown spots': 'đốm nâu',
+      'yellow spots': 'đốm vàng',
+      'white powder': 'lớp phấn trắng',
+      'wilting': 'héo lá',
+      'leaf curling': 'xoăn lá',
+      'fungal infection': 'nhiễm nấm',
+      'bacterial infection': 'nhiễm vi khuẩn',
+      'viral infection': 'nhiễm virus',
+      'Apply fungicide': 'Sử dụng thuốc trừ nấm',
+      'Apply pesticide': 'Sử dụng thuốc bảo vệ thực vật',
+      'Remove infected leaves': 'Loại bỏ lá bị nhiễm bệnh',
+      'Improve air circulation': 'Cải thiện độ thông thoáng',
+      'Avoid overhead watering': 'Tránh tưới nước trực tiếp lên lá',
+      'Monitor the plant': 'Theo dõi cây trồng',
+      'Consult an agricultural specialist':
+          'Tham khảo ý kiến chuyên gia nông nghiệp',
+      'Low': 'Thấp',
+      'Medium': 'Trung bình',
+      'High': 'Cao',
+      'Severe': 'Nặng',
+      'Mild': 'Nhẹ',
+      'Moderate': 'Trung bình',
+    };
+
+    dictionary.forEach((en, vi) {
+      result = result.replaceAll(en, vi);
+    });
+
+    return result;
   }
 
   static Future<Map<String, dynamic>> generateDescriptionForPlant(

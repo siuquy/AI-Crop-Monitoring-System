@@ -64,7 +64,8 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
                       parsedDate = DateTime.tryParse(item['timestamp']);
                     }
                     final dateString = parsedDate != null
-                        ? DateFormat('dd/MM/yyyy HH:mm').format(parsedDate)
+                        ? DateFormat('dd/MM/yyyy HH:mm')
+                            .format(parsedDate.toLocal())
                         : 'Không rõ thời gian';
 
                     final imagePath = item['imagePath'] as String?;

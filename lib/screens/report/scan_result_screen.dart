@@ -42,6 +42,7 @@ class ScanResultScreen extends StatelessWidget {
         foregroundColor: Colors.black,
         elevation: 1,
       ),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -61,7 +62,7 @@ class ScanResultScreen extends StatelessWidget {
                     heroTag: 'retry_scan',
                     onPressed: () => _showRetryMenu(context),
                     backgroundColor: Colors.white.withOpacity(0.9),
-                    foregroundColor: Colors.teal,
+                    foregroundColor: const Color(0xFF10B981),
                     icon: const Icon(Icons.image_search),
                     label: const Text('Thử ảnh khác'),
                   ),
@@ -72,22 +73,22 @@ class ScanResultScreen extends StatelessWidget {
             _buildSection(
               title: "Vị trí",
               content: "$farmName > $plotName > $bedName",
-              icon: Icons.location_on,
-              color: Colors.blueGrey,
+              icon: Icons.location_on_rounded,
+              color: const Color(0xFF64748B),
             ),
             const SizedBox(height: 20),
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 12,
                     offset: const Offset(0, 4),
                   )
                 ],
-                border: Border.all(color: Colors.purple.shade100),
+                border: Border.all(color: Colors.grey.shade200),
               ),
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -128,7 +129,7 @@ class ScanResultScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       side: const BorderSide(color: Colors.green),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
                 ),
@@ -158,10 +159,10 @@ class ScanResultScreen extends StatelessWidget {
                     ),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      backgroundColor: const Color(0xFF1FCFC5), // primaryTeal
+                      backgroundColor: const Color(0xFF10B981), // primaryTeal
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
                 ),
@@ -294,10 +295,8 @@ class ScanResultScreen extends StatelessWidget {
         farmId: farmId,
         plotId: plotId,
         bedId: bedId,
-        plantName:
-            '$plantName (AI CHÚ Ý QUAN TRỌNG: BẠN PHẢI DỊCH 100% CÁC TRƯỜNG description, symptoms, solutions, treatmentSteps SANG TIẾNG VIỆT)',
-        growthStage:
-            'Giai đoạn sinh trưởng (Vui lòng sử dụng Tiếng Việt cho toàn bộ câu trả lời)',
+        plantName: plantName,
+        growthStage: 'Giai đoạn sinh trưởng',
       );
 
       if (!context.mounted) return;

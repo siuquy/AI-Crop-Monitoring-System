@@ -9,7 +9,11 @@ import '../../screens/task/api_config.dart';
 import 'report_detail_screen.dart';
 import 'report_update_screen.dart';
 
-const Color primaryTeal = Color(0xFF4CAF50);
+const Color primaryTeal = Color(0xFF10B981);
+const Color bgColor = Color(0xFFF8FAFC);
+const Color surfaceColor = Colors.white;
+const Color textPrimary = Color(0xFF1E293B);
+const Color textSecondary = Color(0xFF64748B);
 
 class ReportListScreen extends StatefulWidget {
   const ReportListScreen({super.key});
@@ -193,8 +197,11 @@ class _ReportListScreenState extends State<ReportListScreen> {
       appBar: AppBar(
         title: const Text('Lịch sử báo cáo'),
         centerTitle: true,
+        backgroundColor: surfaceColor,
+        elevation: 0,
+        foregroundColor: textPrimary,
       ),
-      backgroundColor: const Color(0xFFF3F6F9),
+      backgroundColor: bgColor,
       body: Column(
         children: [
           _buildFilterBar(),
@@ -214,7 +221,7 @@ class _ReportListScreenState extends State<ReportListScreen> {
     return Container(
       height: 60,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: surfaceColor,
         border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
       ),
       child: ListView(
@@ -249,13 +256,11 @@ class _ReportListScreenState extends State<ReportListScreen> {
         margin: const EdgeInsets.only(right: 12.0),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color:
-              isSelected ? themeColor.withOpacity(0.12) : Colors.grey.shade100,
+          color: isSelected ? themeColor.withOpacity(0.12) : surfaceColor,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color:
-                isSelected ? themeColor.withOpacity(0.5) : Colors.transparent,
-            width: 1.5,
+            color: isSelected ? themeColor.withOpacity(0.5) : Colors.grey.shade200,
+            width: 1,
           ),
         ),
         child: Row(
@@ -422,10 +427,12 @@ class _ReportListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 2,
+      elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
       ),
+      color: surfaceColor,
       margin: EdgeInsets.zero,
       child: InkWell(
         onTap: onTap,

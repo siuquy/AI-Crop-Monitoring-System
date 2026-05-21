@@ -13,9 +13,12 @@ import '../../models/worker.dart';
 import 'harvest_screen.dart';
 import 'growth_tracking_screen.dart';
 
-const Color primaryTeal = Color(0xFF4CAF50);
-const Color darkTeal = Color(0xFF388E3C);
-const Color bgColor = Color(0xFFF0F8F1);
+const Color primaryTeal = Color(0xFF10B981); // Mint Green
+const Color darkTeal = Color(0xFF059669);
+const Color bgColor = Color(0xFFF8FAFC); // Clean light slate
+const Color surfaceColor = Colors.white;
+const Color textPrimary = Color(0xFF1E293B);
+const Color textSecondary = Color(0xFF64748B);
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -214,7 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Container(
                 padding: EdgeInsets.fromLTRB(
-                    20, MediaQuery.of(context).padding.top + 20, 20, 28),
+                    20, MediaQuery.of(context).padding.top + 24, 20, 32),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     colors: [primaryTeal, darkTeal],
@@ -553,7 +556,7 @@ class _Header extends StatelessWidget {
               Text(
                 'Chào buổi sáng, $workerName!',
                 style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Colors.white),
               ),
@@ -683,9 +686,9 @@ class _WeatherCardState extends State<_WeatherCard> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
+        color: Colors.black.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
       ),
       child: Row(
         children: [
@@ -814,12 +817,12 @@ class _SummaryItem extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          color: surfaceColor,
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 10,
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 12,
                 offset: const Offset(0, 4)),
           ],
         ),
@@ -876,12 +879,12 @@ class _TaskItem extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          color: surfaceColor,
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 10,
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 12,
                 offset: const Offset(0, 4)),
           ],
         ),
@@ -900,9 +903,9 @@ class _TaskItem extends StatelessWidget {
                 children: [
                   Text(title,
                       style: const TextStyle(
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87)),
+                          color: textPrimary)),
                   const SizedBox(height: 6),
                   const SizedBox(height: 4),
                   Row(

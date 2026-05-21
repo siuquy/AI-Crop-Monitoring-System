@@ -3,29 +3,81 @@ import 'package:flutter/foundation.dart';
 import 'api_client.dart';
 
 class HarvestService {
-  static Future<List<Map<String, dynamic>>> getHarvests() async {
+  static Future<void> createHarvest({
+    required String plotId,
+    required String seasonId,
+    required String cropId,
+    required String expectedDate,
+    required num expectedQuantity,
+    required String unit,
+    required String status,
+    required String notes,
+    required String startDate,
+    required String endDate,
+  }) async {
     try {
-      final response = await ApiClient.instance.get('/api/harvests');
-      if (response != null && response['success'] == true) {
-        return List<Map<String, dynamic>>.from(response['data']);
-      }
-      return [];
+      final Map<String, dynamic> body = {
+        "plotId": plotId,
+        "seasonId": seasonId,
+        "cropId": cropId,
+        "expectedDate": expectedDate,
+        "expectedQuantity": expectedQuantity,
+        "unit": unit,
+        "status": status,
+        "notes": notes,
+        "startDate": startDate,
+        "endDate": endDate
+      };
+
+      await ApiClient.instance.post('/api/harvests', body: body);
     } catch (e) {
-      debugPrint('Lỗi tải danh sách Harvests: $e');
-      return [];
+      if (kDebugMode) debugPrint('Lỗi tạo harvest: $e');
+      rethrow;
     }
   }
 
-  static Future<Map<String, dynamic>?> getHarvestDetail(String id) async {
+  static Future<List<Map<String, dynamic>>> getHarvests({
+    String? farmId,
+    String? plotId,
+    String? seasonId,
+  }) async {
     try {
-      final response = await ApiClient.instance.get('/api/harvest-details/$id');
-      if (response != null && response['success'] == true) {
-        return response['data'] as Map<String, dynamic>;
+      String url = '/api/harvests';
+      List<String> queryParams = [];
+      if (farmId != null && farmId.isNotEmpty)
+        queryParams.add('farmId=$farmId');
+      if (plotId != null && plotId.isNotEmpty)
+        queryParams.add('plotId=$plotId');
+      if (seasonId != null && seasonId.isNotEmpty)
+        queryParams.add('seasonId=$seasonId');
+
+      if (queryParams.isNotEmpty) {
+        url += '?${queryParams.join('&')}';
       }
-      return null;
+
+      final response = await ApiClient.instance.get(url);
+      List<Map<String, dynamic>> results = [];
+      if (response != null && response is List) {
+        results = List<Map<String, dynamic>>.from(response);
+      } else if (response != null && response['data'] is List) {
+        results = List<Map<String, dynamic>>.from(response['data']);
+      }
+
+      // Lọc thêm ở client đề phòng API không hỗ trợ query string
+      if (plotId != null && plotId.isNotEmpty) {
+        results =
+            results.where((h) => h['plotId']?.toString() == plotId).toList();
+      }
+      if (seasonId != null && seasonId.isNotEmpty) {
+        results = results
+            .where((h) => h['seasonId']?.toString() == seasonId)
+            .toList();
+      }
+
+      return results;
     } catch (e) {
-      debugPrint('Lỗi tải Harvest Detail: $e');
-      return null;
+      if (kDebugMode) debugPrint('Lỗi lấy danh sách harvest: $e');
+      return [];
     }
   }
 
@@ -42,33 +94,39 @@ class HarvestService {
   }) async {
     try {
       final Map<String, String> fields = {
-        'plotId': plotId,
-        'seasonId': seasonId,
-        'cropName': cropName,
-        'quantity': quantity.toString(),
-        'unit': unit,
-        'quality': quality,
-        'harvestDate': harvestDate.toIso8601String(),
-        'notes': notes,
+        "plotId": plotId,
+        "seasonId": seasonId,
+        "cropName": cropName,
+        "quantity": quantity.toString(),
+        "unit": unit,
+        "quality": quality,
+        "harvestDate": harvestDate.toIso8601String(),
+        "notes": notes,
       };
 
       if (image != null) {
         await ApiClient.instance.postMultipart(
-          '/api/Harvests',
+          '/api/harvests',
           fields: fields,
           files: [image],
-          fileField: 'image', // Hoặc 'file' tùy API backend yêu cầu
         );
       } else {
-        // Nếu không có ảnh thì gọi POST thông thường
-        await ApiClient.instance.post('/api/Harvests', body: fields);
+        final Map<String, dynamic> body = {
+          "plotId": plotId,
+          "seasonId": seasonId,
+          "cropName": cropName,
+          "quantity": quantity,
+          "unit": unit,
+          "quality": quality,
+          "harvestDate": harvestDate.toIso8601String(),
+          "notes": notes,
+        };
+        await ApiClient.instance.post('/api/harvests', body: body);
       }
-
-      debugPrint('Ghi nhận thu hoạch thành công!');
       return true;
     } catch (e) {
-      debugPrint('Ngoại lệ khi gửi thu hoạch: $e');
-      throw Exception('Lỗi mạng hoặc server. Vui lòng thử lại.');
+      if (kDebugMode) debugPrint('Lỗi submit harvest: $e');
+      return false;
     }
   }
 }

@@ -1,30 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../core/service/growth_tracking_service.dart';
+import '../../models/growth_tracking.dart';
 
 const Color primaryTeal = Color(0xFF4CAF50);
 const Color bgColor = Color(0xFFF0F8F1);
 
 class GrowthTrackingDetailScreen extends StatefulWidget {
-  final String farmId;
-  final String plotId;
-  final String bedId;
-  final String seasonId;
+  final String? farmId;
+  final String? plotId;
+  final String? bedId;
+  final String? seasonId;
 
-  final String farmName;
-  final String plotName;
-  final String bedName;
-  final String seasonName;
+  final String? farmName;
+  final String? plotName;
+  final String? bedName;
+  final String? seasonName;
+
+  final GrowthTracking? tracking;
 
   const GrowthTrackingDetailScreen({
     super.key,
-    required this.farmId,
-    required this.plotId,
-    required this.bedId,
-    required this.seasonId,
-    required this.farmName,
-    required this.plotName,
-    required this.bedName,
-    required this.seasonName,
+    this.farmId,
+    this.plotId,
+    this.bedId,
+    this.seasonId,
+    this.farmName,
+    this.plotName,
+    this.bedName,
+    this.seasonName,
+    this.tracking,
   });
 
   @override
@@ -41,12 +46,12 @@ class _GrowthTrackingDetailScreenState
   String _fetchedNote = 'Cây đang phát triển tốt, lá xanh đều.';
   DateTime _lastUpdated = DateTime.now().subtract(const Duration(days: 2));
 
-  // Thông tin dùng để form cập nhật
   String _currentStage = 'Giai đoạn sinh trưởng (Sinh dưỡng)';
   String _healthStatus = 'Bình thường';
   final TextEditingController _noteController = TextEditingController();
+  final TextEditingController _heightController = TextEditingController();
 
-  final List<String> _stages = [
+  List<String> _stages = [
     'Giai đoạn cây con (Nảy mầm)',
     'Giai đoạn sinh trưởng (Sinh dưỡng)',
     'Giai đoạn ra hoa',
@@ -64,40 +69,128 @@ class _GrowthTrackingDetailScreenState
   @override
   void initState() {
     super.initState();
-    _fetchDetail();
+    if (widget.tracking != null) {
+      // Đổ dữ liệu có sẵn lên UI
+      _fetchedStage = widget.tracking!.stageName;
+
+      String health = widget.tracking!.healthStatus ?? 'Good';
+      if (health == 'Warning')
+        _fetchedHealth = 'Cần chú ý';
+      else if (health == 'Bad')
+        _fetchedHealth = 'Bị bệnh / Sâu hại';
+      else
+        _fetchedHealth = 'Bình thường';
+
+      _fetchedNote = widget.tracking!.notes ?? 'Không có ghi chú';
+      _lastUpdated = widget.tracking!.updatedAt ??
+          widget.tracking!.createdAt ??
+          DateTime.now();
+
+      _currentStage = _fetchedStage;
+      if (!_stages.contains(_currentStage)) {
+        _stages.insert(0, _currentStage);
+      }
+
+      _healthStatus = _fetchedHealth;
+      _heightController.text = widget.tracking!.actualHeight?.toString() ?? '';
+      _noteController.text = widget.tracking!.notes ?? '';
+      _isLoading = false;
+    } else {
+      _fetchDetail();
+    }
   }
 
   @override
   void dispose() {
     _noteController.dispose();
+    _heightController.dispose();
     super.dispose();
   }
 
   Future<void> _fetchDetail() async {
-    // Có thể gọi API tại đây để lấy thông tin gần nhất của Luống + Mùa vụ
-    await Future.delayed(const Duration(seconds: 1));
+    await Future.delayed(const Duration(milliseconds: 500));
     if (mounted) {
       setState(() {
         _isLoading = false;
-        _currentStage = _fetchedStage;
-        _healthStatus = _fetchedHealth;
+        _currentStage = _stages[0]; // Mặc định ở Giai đoạn Nảy mầm khi tạo mới
+        _healthStatus = _healthStatuses[0]; // Mặc định Bình thường
         _noteController.text = ''; // Để trống cho lần cập nhật mới
+        _heightController.text = '';
       });
     }
   }
 
   void _saveUpdate() async {
-    // TODO: Gắn API Cập nhật Tracking Data tại đây
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 1));
 
-    if (mounted) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Cập nhật thông tin sinh trưởng thành công!')),
-      );
-      Navigator.pop(context);
+    try {
+      final actualHeight = double.tryParse(_heightController.text) ?? 0.0;
+
+      String apiHealthStatus = 'Good';
+      if (_healthStatus == 'Cần chú ý') apiHealthStatus = 'Warning';
+      if (_healthStatus == 'Bị bệnh / Sâu hại' || _healthStatus == 'Suy yếu')
+        apiHealthStatus = 'Bad';
+
+      GrowthTracking? newTracking;
+
+      // Bổ sung thông báo để dễ theo dõi tiến trình
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(widget.tracking != null
+                  ? 'Đang cập nhật dữ liệu...'
+                  : 'Đang tạo bản ghi mới...')),
+        );
+      }
+
+      if (widget.tracking != null) {
+        // Gọi Update (PUT)
+        newTracking = await GrowthTrackingService.updateGrowthTracking(
+          trackingId: widget.tracking!.trackingId,
+          trackingStatus: 'In-Progress',
+          healthStatus: apiHealthStatus,
+          actualHeight: actualHeight,
+          notes: _noteController.text.trim().isEmpty
+              ? 'none'
+              : _noteController.text.trim(),
+        );
+      } else {
+        // Gọi Create (POST) cho nhánh chọn tạo mới từ đầu chưa có dữ liệu
+        newTracking = await GrowthTrackingService.createGrowthTracking(
+          harvestDetailId: '4260d675-632b-46d6-b19d-bb892e5e04f4', // MOCK ID
+          stageId: '54196e39-715a-4005-aabc-9d80bca83555', // MOCK ID
+          startDate: DateTime.now(),
+          healthStatus: apiHealthStatus,
+          actualHeight: actualHeight,
+          notes: _noteController.text.trim().isEmpty
+              ? 'none'
+              : _noteController.text.trim(),
+        );
+      }
+
+      if (mounted) {
+        if (newTracking != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Cập nhật thông tin sinh trưởng thành công!'),
+                backgroundColor: Colors.green),
+          );
+          Navigator.pop(context,
+              true); // Trả về `true` để trang ListScreen nhận biết và tải lại
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Cập nhật thất bại.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -122,11 +215,15 @@ class _GrowthTrackingDetailScreenState
                 children: [
                   _buildInfoCard(),
                   const SizedBox(height: 16),
-                  _buildCurrentStatusCard(),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Cập nhật trạng thái',
-                    style: TextStyle(
+                  if (widget.tracking != null) ...[
+                    _buildCurrentStatusCard(),
+                    const SizedBox(height: 20),
+                  ],
+                  Text(
+                    widget.tracking != null
+                        ? 'Cập nhật trạng thái'
+                        : 'Khởi tạo theo dõi',
+                    style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: Colors.black87),
@@ -139,9 +236,9 @@ class _GrowthTrackingDetailScreenState
                     height: 54,
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.save),
-                      label: const Text(
-                        "Lưu cập nhật",
-                        style: TextStyle(
+                      label: Text(
+                        widget.tracking != null ? "Lưu cập nhật" : "Tạo mới",
+                        style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -183,15 +280,22 @@ class _GrowthTrackingDetailScreenState
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '${widget.farmName} > ${widget.plotName} > ${widget.bedName}',
+                  widget.tracking != null
+                      ? '${widget.tracking!.cropName} > ${widget.tracking!.bedName}'
+                      : '${widget.farmName} > ${widget.plotName} > ${widget.bedName}',
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
             ],
           ),
-          const Divider(height: 24),
-          _infoRow(Icons.calendar_month, 'Mùa vụ:', widget.seasonName),
+          if (widget.tracking == null) ...[
+            const Divider(height: 24),
+            _infoRow(Icons.calendar_month, 'Mùa vụ:', widget.seasonName ?? ''),
+          ] else ...[
+            const Divider(height: 24),
+            _infoRow(Icons.spa, 'Cây trồng:', widget.tracking!.cropName),
+          ]
         ],
       ),
     );
@@ -234,7 +338,7 @@ class _GrowthTrackingDetailScreenState
               _fetchedNote.isEmpty ? 'Không có' : _fetchedNote),
           const SizedBox(height: 12),
           _infoRow(Icons.access_time, 'Cập nhật lần cuối:',
-              DateFormat('dd/MM/yyyy HH:mm').format(_lastUpdated)),
+              DateFormat('dd/MM/yyyy HH:mm').format(_lastUpdated.toLocal())),
         ],
       ),
     );
@@ -311,6 +415,20 @@ class _GrowthTrackingDetailScreenState
                 .map((s) => DropdownMenuItem(value: s, child: Text(s)))
                 .toList(),
             onChanged: (val) => setState(() => _healthStatus = val!),
+          ),
+          const SizedBox(height: 16),
+          const Text('Chiều cao cây thực tế (cm)',
+              style: TextStyle(
+                  fontWeight: FontWeight.w600, color: Colors.black87)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _heightController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              hintText: 'VD: 15.5',
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
           ),
           const SizedBox(height: 16),
           const Text('Ghi chú quan sát',

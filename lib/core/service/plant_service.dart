@@ -13,7 +13,6 @@ class PlantService {
     String? growthStage,
   }) async {
     try {
-      // Chuyển hướng sang AIService để đồng bộ format dữ liệu chuẩn cho UI
       return await AIService.analyzePlantImage(
         imageFile,
         plantName: plantName,

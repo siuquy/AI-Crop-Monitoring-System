@@ -111,10 +111,8 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         farmId: widget.farmId,
         plotId: widget.plotId,
         bedId: widget.bedId,
-        plantName:
-            '$plantName (AI CHÚ Ý QUAN TRỌNG: BẠN PHẢI DỊCH 100% CÁC TRƯỜNG description, symptoms, solutions, treatmentSteps SANG TIẾNG VIỆT)',
-        growthStage:
-            'Giai đoạn sinh trưởng (Vui lòng sử dụng Tiếng Việt cho toàn bộ câu trả lời)',
+        plantName: plantName,
+        growthStage: 'Giai đoạn sinh trưởng',
       );
 
       await ScanHistoryService.saveScan(_image!.path, result);

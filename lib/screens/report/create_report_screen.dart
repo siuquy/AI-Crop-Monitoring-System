@@ -342,13 +342,13 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F6F9),
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text('Tạo báo cáo mới',
             style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        foregroundColor: const Color(0xFF1E293B),
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -422,11 +422,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withOpacity(0.03),
-              blurRadius: 10,
+              blurRadius: 12,
               offset: const Offset(0, 4))
         ],
       ),
@@ -511,11 +511,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withOpacity(0.03),
-              blurRadius: 10,
+              blurRadius: 12,
               offset: const Offset(0, 4))
         ],
       ),
@@ -617,11 +617,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withOpacity(0.03),
-              blurRadius: 10,
+              blurRadius: 12,
               offset: const Offset(0, 4))
         ],
       ),
@@ -666,7 +666,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: const Center(child: CircularProgressIndicator()),
       );
@@ -681,11 +681,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withOpacity(0.03),
-              blurRadius: 10,
+              blurRadius: 12,
               offset: const Offset(0, 4))
         ],
       ),
@@ -813,11 +813,11 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withOpacity(0.03),
-              blurRadius: 10,
+              blurRadius: 12,
               offset: const Offset(0, 4))
         ],
       ),
@@ -914,8 +914,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  backgroundColor: Colors.teal.shade600,
+                  borderRadius: BorderRadius.circular(10)),
+                  backgroundColor: const Color(0xFF10B981),
                   foregroundColor: Colors.white,
                   elevation: 0,
                 ),

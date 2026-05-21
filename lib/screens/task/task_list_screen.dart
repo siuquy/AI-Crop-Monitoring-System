@@ -7,9 +7,12 @@ import 'package:acmms/core/service/task_service.dart';
 import 'package:acmms/models/task_filter.dart';
 import 'task_detail_screen.dart';
 
-const Color primaryTeal = Color(0xFF4CAF50);
-const Color darkTeal = Color(0xFF388E3C);
-const Color bgColor = Color(0xFFF0F8F1);
+const Color primaryTeal = Color(0xFF10B981);
+const Color darkTeal = Color(0xFF059669);
+const Color bgColor = Color(0xFFF8FAFC);
+const Color surfaceColor = Colors.white;
+const Color textPrimary = Color(0xFF1E293B);
+const Color textSecondary = Color(0xFF64748B);
 
 class TaskListScreen extends StatefulWidget {
   const TaskListScreen({super.key});
@@ -136,7 +139,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
             title: const Text(
               'Danh sách nhiệm vụ',
               style:
-                  TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+                  TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
             ),
             iconTheme: const IconThemeData(color: Colors.black),
             bottom: PreferredSize(
@@ -232,8 +235,9 @@ class _TaskListScreenState extends State<TaskListScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: active ? primaryTeal : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(16),
+            color: active ? primaryTeal : surfaceColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: active ? primaryTeal : Colors.grey.shade200),
           ),
           child: Center(
             child: Text(
@@ -263,13 +267,13 @@ class _TaskListScreenState extends State<TaskListScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.red.shade50,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.red.shade200, width: 1.5),
+          color: surfaceColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.red.shade300, width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.red.withOpacity(0.1),
-              blurRadius: 10,
+              color: Colors.red.withOpacity(0.05),
+              blurRadius: 12,
               offset: const Offset(0, 4),
             ),
           ],
@@ -345,12 +349,12 @@ class _TaskListScreenState extends State<TaskListScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          color: surfaceColor,
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 12,
               offset: const Offset(0, 4),
             ),
           ],
@@ -416,12 +420,12 @@ class _TaskListScreenState extends State<TaskListScreen> {
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(10)),
                       side: BorderSide(color: Colors.grey.shade300),
                     ),
                     child: Text('Xem chi tiết',
                         style: TextStyle(
-                            color: Colors.grey.shade700,
+                            color: textSecondary,
                             fontWeight: FontWeight.bold)),
                   ),
                 ),
@@ -435,7 +439,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(10)),
                       elevation: 0,
                     ),
                     onPressed: task.status == TaskStatus.completed

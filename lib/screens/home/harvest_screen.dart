@@ -1,11 +1,12 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../../core/service/harvest_service.dart';
+import '../../core/service/farm_service.dart';
+import '../../core/service/plot_service.dart';
+import '../../core/service/season_service.dart';
+import 'create_harvest_screen.dart';
 
 const Color primaryTeal = Color(0xFF4CAF50);
-const Color darkTeal = Color(0xFF388E3C);
 const Color bgColor = Color(0xFFF0F8F1);
 
 class HarvestScreen extends StatefulWidget {
@@ -16,147 +17,73 @@ class HarvestScreen extends StatefulWidget {
 }
 
 class _HarvestScreenState extends State<HarvestScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final ImagePicker _picker = ImagePicker();
-
-  bool _isLoading = false;
-  File? _image;
-
-  Map<String, dynamic>? _selectedHarvest;
-  String _quantity = '';
-  String _selectedUnit = 'kg';
-  String _selectedQuality = 'Good';
-  DateTime _harvestDate = DateTime.now();
-  String _notes = '';
-
   List<Map<String, dynamic>> _harvests = [];
-  bool _isLoadingHarvests = true;
+  bool _isLoading = false;
+  bool _hasSearched = false;
+  String? _error;
+
+  bool _isLoadingData = true;
+  Map<String, String> _farmMap = {};
+  Map<String, Map<String, dynamic>> _plotMap = {};
+  Map<String, Map<String, dynamic>> _seasonMap = {};
+
+  String? _selectedFarmId;
+  String? _selectedPlotId;
+  String? _selectedSeasonId;
 
   @override
   void initState() {
     super.initState();
-    _loadHarvests();
+    _loadData();
   }
 
-  Future<void> _loadHarvests() async {
+  Future<void> _loadData() async {
     try {
-      final data = await HarvestService.getHarvests();
+      final results = await Future.wait([
+        FarmService.getFarmMap(),
+        PlotService.getPlotMap(),
+        SeasonService.getSeasonMap(),
+      ]);
+
       if (mounted) {
         setState(() {
-          // Lọc ra các kế hoạch thu hoạch chưa hoàn thành
-          _harvests = data.where((h) => h['status'] != 'completed').toList();
-          _isLoadingHarvests = false;
+          _farmMap = results[0] as Map<String, String>;
+          _plotMap = results[1] as Map<String, Map<String, dynamic>>;
+          _seasonMap = results[2] as Map<String, Map<String, dynamic>>;
+          _isLoadingData = false;
         });
       }
     } catch (e) {
+      debugPrint('Lỗi tải dữ liệu dropdown: $e');
       if (mounted) {
-        setState(() {
-          _isLoadingHarvests = false;
-        });
+        setState(() => _isLoadingData = false);
       }
     }
   }
 
-  Future<void> _pickImage(ImageSource source) async {
-    final pickedFile = await _picker.pickImage(
-      source: source,
-      imageQuality: 70,
-      maxWidth: 1080,
-      maxHeight: 1080,
-    );
-
-    if (pickedFile != null) {
-      setState(() {
-        _image = File(pickedFile.path);
-      });
-    }
-  }
-
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _harvestDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null && picked != _harvestDate) {
-      setState(() {
-        _harvestDate = picked;
-      });
-    }
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final bool? confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xác nhận gửi'),
-        content: const Text('Bạn có chắc chắn muốn ghi nhận thu hoạch này?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: primaryTeal),
-            child: const Text('Đồng ý', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
-    _formKey.currentState!.save();
-
+  Future<void> _fetchHarvests() async {
     setState(() {
       _isLoading = true;
+      _hasSearched = true;
+      _error = null;
     });
 
     try {
-      final success = await HarvestService.submitHarvest(
-        plotId: _selectedHarvest?['plotId'] ?? '',
-        seasonId: _selectedHarvest?['seasonId'] ?? '',
-        cropName: _selectedHarvest?['cropName'] ?? '',
-        quantity: double.tryParse(_quantity) ?? 0,
-        unit: _selectedUnit,
-        quality: _selectedQuality,
-        harvestDate: _harvestDate,
-        notes: _notes,
-        image: _image,
+      final harvests = await HarvestService.getHarvests(
+        farmId: _selectedFarmId,
+        plotId: _selectedPlotId,
+        seasonId: _selectedSeasonId,
       );
-
       if (mounted) {
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Ghi nhận thu hoạch thành công!'),
-                backgroundColor: primaryTeal),
-          );
-          Navigator.pop(context);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content:
-                    const Text('Không thể lưu thông tin. Vui lòng thử lại.'),
-                backgroundColor: Colors.red.shade700),
-          );
-        }
+        setState(() {
+          _harvests = harvests;
+          _isLoading = false;
+        });
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(e.toString()),
-              backgroundColor: Colors.red.shade700),
-        );
-      }
-    } finally {
-      if (mounted) {
         setState(() {
+          _error = e.toString();
           _isLoading = false;
         });
       }
@@ -168,378 +95,502 @@ class _HarvestScreenState extends State<HarvestScreen> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Ghi nhận Thu hoạch',
+        title: const Text('Danh sách Thu hoạch',
             style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildCard(
-                title: 'Thông tin chung',
-                icon: Icons.info_outline,
-                child: Column(
-                  children: [
-                    _isLoadingHarvests
-                        ? const Center(
-                            child:
-                                CircularProgressIndicator(color: primaryTeal))
-                        : DropdownButtonFormField<Map<String, dynamic>>(
-                            isExpanded: true,
-                            icon: Icon(Icons.keyboard_arrow_down_rounded,
-                                color: Colors.grey.shade600),
-                            decoration: _inputDecoration('Kế hoạch thu hoạch',
-                                Icons.assignment_outlined),
-                            value: _selectedHarvest,
-                            style: const TextStyle(
-                                color: Colors.black87,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600),
-                            items: _harvests.map((h) {
-                              final label =
-                                  '${h['cropName']} - ${h['plotName']} (${h['seasonName']})';
-                              return DropdownMenuItem<Map<String, dynamic>>(
-                                value: h,
-                                child: Text(label,
-                                    overflow: TextOverflow.ellipsis),
-                              );
-                            }).toList(),
-                            onChanged: (val) =>
-                                setState(() => _selectedHarvest = val),
-                            validator: (val) =>
-                                val == null ? 'Vui lòng chọn kế hoạch' : null,
-                          ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      key: ValueKey(_selectedHarvest?['cropName'] ?? ''),
-                      initialValue: _selectedHarvest?['cropName'] ?? '',
-                      readOnly: true,
-                      style: const TextStyle(
-                          color: Colors.black87,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600),
-                      decoration: _inputDecoration(
-                              'Tên giống / Cây trồng', Icons.eco_outlined)
-                          .copyWith(
-                        fillColor: Colors.grey.shade100,
-                      ),
-                      validator: (val) => val == null || val.trim().isEmpty
-                          ? 'Vui lòng chọn kế hoạch ở trên'
-                          : null,
-                    ),
-                  ],
-                ),
+      body: Column(
+        children: [
+          _buildSearchPanel(),
+          Expanded(child: _buildBody()),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          debugPrint(
+              '[HarvestScreen] Đang chuyển sang màn hình Tạo Thu Hoạch...');
+          final result = await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => CreateHarvestScreen(
+                initialPlotId: _selectedPlotId,
+                initialSeasonId: _selectedSeasonId,
               ),
-              const SizedBox(height: 16),
-              _buildCard(
-                title: 'Chi tiết thu hoạch',
-                icon: Icons.shopping_basket_outlined,
-                child: Column(
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 1,
-                          child: TextFormField(
-                            decoration: _inputDecoration(
-                                'Sản lượng', Icons.monitor_weight_outlined),
-                            keyboardType: TextInputType.number,
-                            style: const TextStyle(
-                                color: Colors.black87,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600),
-                            onSaved: (val) => _quantity = val ?? '0',
-                            validator: (val) {
-                              if (val == null || val.trim().isEmpty) {
-                                return 'Bắt buộc';
-                              }
-                              if (double.tryParse(val) == null) {
-                                return 'Phải là số';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          flex: 1,
-                          child: DropdownButtonFormField<String>(
-                            isExpanded: true,
-                            icon: Icon(Icons.keyboard_arrow_down_rounded,
-                                color: Colors.grey.shade600),
-                            decoration: _inputDecoration(
-                                'Đơn vị', Icons.category_outlined),
-                            value: _selectedUnit,
-                            style: const TextStyle(
-                                color: Colors.black87,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600),
-                            items: ['kg', 'ton', 'basket'].map((unit) {
-                              return DropdownMenuItem<String>(
-                                value: unit,
-                                child:
-                                    Text(unit, overflow: TextOverflow.ellipsis),
-                              );
-                            }).toList(),
-                            onChanged: (val) =>
-                                setState(() => _selectedUnit = val!),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      isExpanded: true,
-                      icon: Icon(Icons.keyboard_arrow_down_rounded,
-                          color: Colors.grey.shade600),
-                      decoration: _inputDecoration(
-                          'Chất lượng', Icons.verified_outlined),
-                      value: _selectedQuality,
-                      style: const TextStyle(
-                          color: Colors.black87,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600),
-                      items: [
-                        {'id': 'Good', 'name': 'Tốt (Good)'},
-                        {'id': 'Medium', 'name': 'Trung bình (Medium)'},
-                        {'id': 'Bad', 'name': 'Kém (Bad)'},
-                      ].map((q) {
-                        return DropdownMenuItem<String>(
-                          value: q['id']!,
-                          child:
-                              Text(q['name']!, overflow: TextOverflow.ellipsis),
-                        );
-                      }).toList(),
-                      onChanged: (val) =>
-                          setState(() => _selectedQuality = val!),
-                    ),
-                    const SizedBox(height: 16),
-                    InkWell(
-                      onTap: () => _selectDate(context),
-                      child: IgnorePointer(
-                        child: TextFormField(
-                          style: const TextStyle(
-                              color: Colors.black87,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600),
-                          decoration: _inputDecoration(
-                              'Ngày thu hoạch', Icons.calendar_today_outlined),
-                          controller: TextEditingController(
-                            text: DateFormat('dd/MM/yyyy').format(_harvestDate),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildCard(
-                title: 'Hình ảnh & Ghi chú',
-                icon: Icons.photo_camera_back_outlined,
-                child: Column(
-                  children: [
-                    TextFormField(
-                      decoration: _inputDecoration(
-                          'Ghi chú thêm...', Icons.edit_note_outlined),
-                      style:
-                          const TextStyle(color: Colors.black87, fontSize: 15),
-                      maxLines: 3,
-                      onSaved: (val) => _notes = val ?? '',
-                    ),
-                    const SizedBox(height: 16),
-                    if (_image != null) ...[
-                      Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: Image.file(_image!,
-                                height: 200,
-                                width: double.infinity,
-                                fit: BoxFit.cover),
-                          ),
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                color: Colors.black54,
-                                shape: BoxShape.circle,
-                              ),
-                              child: IconButton(
-                                onPressed: () => setState(() => _image = null),
-                                icon: const Icon(Icons.close,
-                                    color: Colors.white, size: 20),
-                                constraints: const BoxConstraints(),
-                                padding: const EdgeInsets.all(8),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _pickImage(ImageSource.camera),
-                            icon: const Icon(Icons.camera_alt_outlined),
-                            label: const Text('Máy ảnh'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              foregroundColor: darkTeal,
-                              side: const BorderSide(color: primaryTeal),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _pickImage(ImageSource.gallery),
-                            icon: const Icon(Icons.photo_library_outlined),
-                            label: const Text('Thư viện'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              foregroundColor: darkTeal,
-                              side: const BorderSide(color: primaryTeal),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 60,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    elevation: 6,
-                    shadowColor: primaryTeal.withOpacity(0.5),
-                  ),
-                  child: Ink(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [primaryTeal, darkTeal],
-                      ),
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: Container(
-                      alignment: Alignment.center,
-                      child: _isLoading
-                          ? const CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            )
-                          : const Text(
-                              'Ghi nhận Thu hoạch',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-            ],
-          ),
-        ),
+            ),
+          );
+          if (result == true && _hasSearched) {
+            _fetchHarvests(); // Tải lại danh sách nếu thêm mới thành công
+          }
+        },
+        backgroundColor: primaryTeal, // Đã mở khóa tính năng
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text('Tạo thu hoạch',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
     );
   }
 
-  Widget _buildCard(
-      {required String title, required IconData icon, required Widget child}) {
+  Widget _buildSearchPanel() {
+    final availablePlots = _plotMap.entries
+        .where((e) =>
+            _selectedFarmId == null ||
+            e.value['farmId']?.toString().toLowerCase() ==
+                _selectedFarmId?.toLowerCase())
+        .toList();
+
+    final availableSeasons = _seasonMap.entries
+        .where((e) =>
+            _selectedFarmId == null ||
+            e.value['farmId']?.toString().toLowerCase() ==
+                _selectedFarmId?.toLowerCase())
+        .toList();
+
     return Container(
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(20),
+            bottomRight: Radius.circular(20),
+          )),
+      child: Column(
+        children: [
+          if (_isLoadingData)
+            const Center(child: CircularProgressIndicator(color: primaryTeal))
+          else ...[
+            DropdownButtonFormField<String>(
+              value: _farmMap.containsKey(_selectedFarmId)
+                  ? _selectedFarmId
+                  : null,
+              decoration:
+                  _dropdownDecoration('Trang trại', Icons.agriculture_outlined),
+              items: _farmMap.entries
+                  .map((e) =>
+                      DropdownMenuItem(value: e.key, child: Text(e.value)))
+                  .toList(),
+              onChanged: (val) {
+                setState(() {
+                  _selectedFarmId = val;
+                  _selectedPlotId = null;
+                  _selectedSeasonId = null;
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedPlotId != null &&
+                            availablePlots.any((p) => p.key == _selectedPlotId)
+                        ? _selectedPlotId
+                        : null,
+                    decoration: _dropdownDecoration(
+                        'Khu vực', Icons.location_on_outlined),
+                    items: availablePlots
+                        .map((e) => DropdownMenuItem(
+                            value: e.key,
+                            child: Text(
+                                e.value['plotName']?.toString() ??
+                                    'Khu vực ${e.key}',
+                                overflow: TextOverflow.ellipsis)))
+                        .toList(),
+                    isExpanded: true,
+                    onChanged: (val) => setState(() => _selectedPlotId = val),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedSeasonId != null &&
+                            availableSeasons
+                                .any((s) => s.key == _selectedSeasonId)
+                        ? _selectedSeasonId
+                        : null,
+                    decoration: _dropdownDecoration(
+                        'Mùa vụ', Icons.calendar_month_outlined),
+                    items: availableSeasons
+                        .map((e) => DropdownMenuItem(
+                            value: e.key,
+                            child: Text(
+                                e.value['seasonName']?.toString() ??
+                                    'Mùa vụ ${e.key}',
+                                overflow: TextOverflow.ellipsis)))
+                        .toList(),
+                    isExpanded: true,
+                    onChanged: (val) => setState(() => _selectedSeasonId = val),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _fetchHarvests,
+                icon: const Icon(Icons.search),
+                label: const Text('Tìm kiếm Thu hoạch',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryTeal,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  elevation: 2,
+                ),
+              ),
+            ),
+          ]
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _dropdownDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: primaryTeal, size: 20),
+      filled: true,
+      fillColor: Colors.grey.shade50,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: primaryTeal, width: 1.5)),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: primaryTeal));
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 16),
+            Text('Lỗi: $_error', style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _fetchHarvests,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Thử lại'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (!_hasSearched) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: primaryTeal.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.search_rounded,
+                  size: 64, color: primaryTeal),
+            ),
+            const SizedBox(height: 24),
+            const Text('Tìm kiếm thu hoạch',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87)),
+            const SizedBox(height: 8),
+            Text('Chọn Trang trại, Khu vực và Mùa vụ ở trên.',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+          ],
+        ),
+      );
+    }
+
+    if (_harvests.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: primaryTeal.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child:
+                  const Icon(Icons.eco_outlined, size: 64, color: primaryTeal),
+            ),
+            const SizedBox(height: 24),
+            const Text('Chưa có dữ liệu',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87)),
+            const SizedBox(height: 8),
+            Text('Nhấn "Tạo thu hoạch" để thêm mới.',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchHarvests,
+      color: primaryTeal,
+      child: ListView.separated(
+        padding:
+            const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 80),
+        itemCount: _harvests.length + 1,
+        separatorBuilder: (context, index) => const SizedBox(height: 16),
+        itemBuilder: (context, index) {
+          if (index == 0) return _buildHeaderCard();
+          final harvest = _harvests[index - 1];
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.grey.shade100, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                )
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () {
+                  // TODO: Chuyển sang màn hình Chi tiết Thu Hoạch
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: primaryTeal.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(Icons.eco_rounded,
+                                color: primaryTeal, size: 28),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  harvest['cropName']?.toString() ??
+                                      'Không rõ cây trồng',
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Icon(Icons.location_on_rounded,
+                                        size: 16, color: Colors.grey.shade500),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        harvest['plotName']?.toString() ??
+                                            'Không rõ khu vực',
+                                        style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey.shade600),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildStatusBadge(harvest['status']?.toString()),
+                        ],
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Divider(height: 1),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildInfoColumn('Sản lượng', Icons.scale_outlined,
+                              '${harvest['quantity'] ?? 0} ${harvest['unit'] ?? 'kg'}'),
+                          _buildInfoColumn(
+                              'Ngày thu hoạch',
+                              Icons.calendar_today_outlined,
+                              harvest['harvestDate'] != null
+                                  ? DateFormat('dd/MM/yyyy').format(
+                                      DateTime.tryParse(harvest['harvestDate']
+                                                  .toString())
+                                              ?.toLocal() ??
+                                          DateTime.now())
+                                  : '--/--/----'),
+                          _buildInfoColumn(
+                              'Chất lượng',
+                              Icons.star_border_rounded,
+                              harvest['quality']?.toString() ?? 'Tốt'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildHeaderCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [primaryTeal, Color(0xFF388E3C)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: primaryTeal.withOpacity(0.3),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: primaryTeal.withOpacity(0.15),
-                  shape: BoxShape.circle,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Tổng quan Thu hoạch',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
                 ),
-                child: Icon(icon, color: darkTeal, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(title,
-                    style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87)),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  'Đã ghi nhận ${_harvests.length} đợt thu hoạch trong hệ thống.',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 20),
-          child,
+          const SizedBox(width: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.analytics_outlined,
+                color: Colors.white, size: 32),
+          ),
         ],
       ),
     );
   }
 
-  InputDecoration _inputDecoration(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: Colors.grey.shade600,
+  Widget _buildStatusBadge(String? status) {
+    final isCompleted = status == 'completed' || status == 'Hoàn thành';
+    final bgColor = isCompleted ? Colors.green.shade50 : Colors.orange.shade50;
+    final textColor =
+        isCompleted ? Colors.green.shade700 : Colors.orange.shade800;
+    final label = isCompleted ? 'Hoàn thành' : 'Đang chờ';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: textColor.withOpacity(0.3)),
       ),
-      prefixIcon: Icon(icon, color: primaryTeal),
-      filled: true,
-      fillColor: Colors.grey.shade50,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide.none,
+      child: Text(
+        label,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
       ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide.none,
+    );
+  }
+
+  Widget _buildInfoColumn(String label, IconData icon, String value) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: Colors.grey.shade500),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(label,
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.w500),
+                    overflow: TextOverflow.ellipsis),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Colors.black87),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: primaryTeal.withOpacity(0.5), width: 1.5),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
   }
 }

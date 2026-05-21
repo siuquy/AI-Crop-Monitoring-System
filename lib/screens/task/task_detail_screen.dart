@@ -13,9 +13,12 @@ import 'package:acmms/screens/report/create_report_screen.dart';
 
 import '../report/iot_info_card.dart';
 
-const Color primaryTeal = Color(0xFF4CAF50);
-const Color darkTeal = Color(0xFF388E3C);
-const Color bgColor = Color(0xFFF0F8F1);
+const Color primaryTeal = Color(0xFF10B981);
+const Color darkTeal = Color(0xFF059669);
+const Color bgColor = Color(0xFFF8FAFC);
+const Color surfaceColor = Colors.white;
+const Color textPrimary = Color(0xFF1E293B);
+const Color textSecondary = Color(0xFF64748B);
 
 class TaskDisplayData {
   final TaskModel task;
@@ -444,7 +447,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     .blue.shade600, // Đổi màu để phân biệt với nút Hoàn thành
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
             ),
             elevation: 0,
           ),
@@ -460,7 +463,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             backgroundColor: isCompleted ? Colors.grey : primaryTeal,
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
             ),
             elevation: 0,
           ),
@@ -607,12 +610,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   BoxDecoration _cardDecoration() {
     return BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
+      color: surfaceColor,
+      borderRadius: BorderRadius.circular(16),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.05),
-          blurRadius: 10,
+          color: Colors.black.withOpacity(0.03),
+          blurRadius: 12,
           offset: const Offset(0, 4),
         ),
       ],
@@ -717,7 +720,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   String _formatTaskDuration(TaskModel task) {
     // task.startDate sẽ không bao giờ null vì đã được gán DateTime.now() nếu API trả về null
     String formatDate(DateTime dt) {
-      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+      final localDt = dt.toLocal();
+      return '${localDt.day.toString().padLeft(2, '0')}/${localDt.month.toString().padLeft(2, '0')}/${localDt.year}';
     }
 
     if (task.startDate == null) {
