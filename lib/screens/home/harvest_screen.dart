@@ -383,7 +383,19 @@ class _HarvestScreenState extends State<HarvestScreen> {
               child: InkWell(
                 borderRadius: BorderRadius.circular(20),
                 onTap: () {
-                  // TODO: Chuyển sang màn hình Chi tiết Thu Hoạch
+                  final id = harvest['harvestDetailId']?.toString() ??
+                      harvest['id']?.toString() ??
+                      harvest['harvestId']?.toString();
+
+                  if (id != null) {
+                    _showHarvestDetailDialog(context, id);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text(
+                              'Dữ liệu không hợp lệ, không tìm thấy ID thu hoạch.')),
+                    );
+                  }
                 },
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -592,5 +604,154 @@ class _HarvestScreenState extends State<HarvestScreen> {
         ],
       ),
     );
+  }
+
+  void _showHarvestDetailDialog(BuildContext context, String id) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: FutureBuilder<Map<String, dynamic>?>(
+            future: HarvestService.getHarvestDetail(id),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.all(32.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: primaryTeal),
+                      SizedBox(height: 16),
+                      Text('Đang tải chi tiết...'),
+                    ],
+                  ),
+                );
+              }
+
+              if (snapshot.hasError ||
+                  !snapshot.hasData ||
+                  snapshot.data == null) {
+                return Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error_outline,
+                          color: Colors.red, size: 48),
+                      const SizedBox(height: 16),
+                      const Text('Không thể tải chi tiết thu hoạch.'),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryTeal),
+                        child: const Text('Đóng',
+                            style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final detail = snapshot.data!;
+              final bedName =
+                  detail['bedName'] != null ? ' - ${detail['bedName']}' : '';
+              final plotName = detail['plotName'] ?? 'Không rõ';
+
+              return Container(
+                constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.7),
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Chi tiết Thu hoạch',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: primaryTeal,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.grey),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 16),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildDetailRow(
+                                'Cây trồng', detail['cropName']?.toString()),
+                            _buildDetailRow('Khu vực', '$plotName$bedName'),
+                            _buildDetailRow(
+                                'Mùa vụ', detail['seasonName']?.toString()),
+                            _buildDetailRow(
+                                'Sản lượng', '${detail['cropQuantity'] ?? 0}'),
+                            _buildDetailRow(
+                                'Ngày bắt đầu',
+                                _formatDateStr(
+                                    detail['startDate']?.toString())),
+                            _buildDetailRow('Ngày kết thúc',
+                                _formatDateStr(detail['endDate']?.toString())),
+                            _buildDetailRow(
+                                'Trạng thái',
+                                detail['isHarvested'] == true
+                                    ? 'Đã thu hoạch'
+                                    : 'Chưa thu hoạch'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow(String label, String? value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+              flex: 2,
+              child: Text(label,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, color: Colors.grey))),
+          Expanded(
+              flex: 3,
+              child: Text(value ?? 'N/A',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, color: Colors.black87),
+                  textAlign: TextAlign.right)),
+        ],
+      ),
+    );
+  }
+
+  String _formatDateStr(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return 'N/A';
+    try {
+      return DateFormat('dd/MM/yyyy').format(DateTime.parse(dateStr).toLocal());
+    } catch (e) {
+      return dateStr;
+    }
   }
 }

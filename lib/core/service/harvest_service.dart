@@ -129,4 +129,61 @@ class HarvestService {
       return false;
     }
   }
+
+  static Future<Map<String, dynamic>?> getHarvestDetail(String id) async {
+    try {
+      // Gọi API trực tiếp nếu id truyền vào là harvestDetailId
+      final response = await ApiClient.instance.get('/api/harvest-details/$id');
+      if (response != null && response['success'] == true) {
+        return response['data'] as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      // Bắt lỗi 404: Khả năng cao id truyền vào đang là harvestId
+      if (e.toString().contains('404')) {
+        try {
+          if (kDebugMode) debugPrint('Thử tìm chi tiết bằng harvestId...');
+          // Tuỳ thuộc vào Backend của bạn, hãy sửa lại đường dẫn này cho đúng
+          // Ví dụ gọi đường dẫn: /api/harvest-details/harvest/$id
+          final fallbackResponse =
+              await ApiClient.instance.get('/api/harvest-details/harvest/$id');
+
+          if (fallbackResponse != null && fallbackResponse['success'] == true) {
+            final data = fallbackResponse['data'];
+            if (data is List && data.isNotEmpty) {
+              return data.first as Map<String, dynamic>;
+            } else if (data is Map<String, dynamic>) {
+              return data;
+            }
+          }
+        } catch (fallbackErr) {
+          if (kDebugMode)
+            debugPrint('Fallback lấy harvest detail thất bại: $fallbackErr');
+        }
+      }
+
+      if (kDebugMode) debugPrint('Lỗi lấy chi tiết harvest: $e');
+      return null;
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getHarvestDetailsByHarvestId(
+      String harvestId) async {
+    try {
+      final response = await ApiClient.instance
+          .get('/api/harvest-details/harvest/$harvestId');
+      if (response != null && response['success'] == true) {
+        final data = response['data'];
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        } else if (data is Map) {
+          return [Map<String, dynamic>.from(data)];
+        }
+      }
+      return [];
+    } catch (e) {
+      if (kDebugMode) debugPrint('Lỗi lấy danh sách harvest detail: $e');
+      return [];
+    }
+  }
 }
