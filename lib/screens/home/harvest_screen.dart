@@ -5,6 +5,8 @@ import '../../core/service/farm_service.dart';
 import '../../core/service/plot_service.dart';
 import '../../core/service/season_service.dart';
 import 'create_harvest_screen.dart';
+import 'update_harvest_dialog.dart';
+import 'update_harvest_detail_dialog.dart';
 
 const Color primaryTeal = Color(0xFF4CAF50);
 const Color bgColor = Color(0xFFF0F8F1);
@@ -383,9 +385,7 @@ class _HarvestScreenState extends State<HarvestScreen> {
               child: InkWell(
                 borderRadius: BorderRadius.circular(20),
                 onTap: () {
-                  final id = harvest['harvestDetailId']?.toString() ??
-                      harvest['id']?.toString() ??
-                      harvest['harvestId']?.toString();
+                  final id = harvest['harvestId']?.toString();
 
                   if (id != null) {
                     _showHarvestDetailDialog(context, id);
@@ -451,6 +451,14 @@ class _HarvestScreenState extends State<HarvestScreen> {
                           ),
                           const SizedBox(width: 8),
                           _buildStatusBadge(harvest['status']?.toString()),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.edit_note_rounded,
+                                color: primaryTeal, size: 28),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () => _showUpdateDialog(harvest),
+                          ),
                         ],
                       ),
                       const Padding(
@@ -460,22 +468,22 @@ class _HarvestScreenState extends State<HarvestScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          _buildInfoColumn('Sản lượng', Icons.scale_outlined,
-                              '${harvest['quantity'] ?? 0} ${harvest['unit'] ?? 'kg'}'),
+                          _buildInfoColumn('SL (dự kiến)', Icons.scale_outlined,
+                              '${harvest['expectedQuantity'] ?? 0} ${harvest['unit'] ?? 'kg'}'),
                           _buildInfoColumn(
                               'Ngày thu hoạch',
                               Icons.calendar_today_outlined,
-                              harvest['harvestDate'] != null
+                              harvest['expectedDate'] != null
                                   ? DateFormat('dd/MM/yyyy').format(
-                                      DateTime.tryParse(harvest['harvestDate']
+                                      DateTime.tryParse(harvest['expectedDate']
                                                   .toString())
                                               ?.toLocal() ??
                                           DateTime.now())
                                   : '--/--/----'),
                           _buildInfoColumn(
-                              'Chất lượng',
-                              Icons.star_border_rounded,
-                              harvest['quality']?.toString() ?? 'Tốt'),
+                              'Số lượng luống',
+                              Icons.format_list_numbered_rounded,
+                              '${harvest['harvestedBedsCount'] ?? 0}/${harvest['detailsCount'] ?? 0} luống'),
                         ],
                       ),
                     ],
@@ -606,143 +614,188 @@ class _HarvestScreenState extends State<HarvestScreen> {
     );
   }
 
-  void _showHarvestDetailDialog(BuildContext context, String id) {
+  void _showHarvestDetailDialog(BuildContext context, String harvestId) {
     showDialog(
       context: context,
       builder: (context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: FutureBuilder<Map<String, dynamic>?>(
-            future: HarvestService.getHarvestDetail(id),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.all(32.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(color: primaryTeal),
-                      SizedBox(height: 16),
-                      Text('Đang tải chi tiết...'),
-                    ],
-                  ),
-                );
-              }
-
-              if (snapshot.hasError ||
-                  !snapshot.hasData ||
-                  snapshot.data == null) {
-                return Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.error_outline,
-                          color: Colors.red, size: 48),
-                      const SizedBox(height: 16),
-                      const Text('Không thể tải chi tiết thu hoạch.'),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryTeal),
-                        child: const Text('Đóng',
-                            style: TextStyle(color: Colors.white)),
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: HarvestService.getHarvestDetailsByHarvestId(harvestId),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(color: primaryTeal),
+                          SizedBox(height: 16),
+                          Text('Đang tải danh sách luống...'),
+                        ],
                       ),
-                    ],
-                  ),
-                );
-              }
+                    );
+                  }
 
-              final detail = snapshot.data!;
-              final bedName =
-                  detail['bedName'] != null ? ' - ${detail['bedName']}' : '';
-              final plotName = detail['plotName'] ?? 'Không rõ';
-
-              return Container(
-                constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.7),
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Chi tiết Thu hoạch',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: primaryTeal,
+                  if (snapshot.hasError ||
+                      !snapshot.hasData ||
+                      snapshot.data == null) {
+                    return Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.error_outline,
+                              color: Colors.red, size: 48),
+                          const SizedBox(height: 16),
+                          const Text('Không thể tải chi tiết thu hoạch.'),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryTeal),
+                            child: const Text('Đóng',
+                                style: TextStyle(color: Colors.white)),
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Colors.grey),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 16),
-                    Flexible(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        ],
+                      ),
+                    );
+                  }
+
+                  final details = snapshot.data!;
+
+                  return Container(
+                    constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.8),
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            _buildDetailRow(
-                                'Cây trồng', detail['cropName']?.toString()),
-                            _buildDetailRow('Khu vực', '$plotName$bedName'),
-                            _buildDetailRow(
-                                'Mùa vụ', detail['seasonName']?.toString()),
-                            _buildDetailRow(
-                                'Sản lượng', '${detail['cropQuantity'] ?? 0}'),
-                            _buildDetailRow(
-                                'Ngày bắt đầu',
-                                _formatDateStr(
-                                    detail['startDate']?.toString())),
-                            _buildDetailRow('Ngày kết thúc',
-                                _formatDateStr(detail['endDate']?.toString())),
-                            _buildDetailRow(
-                                'Trạng thái',
-                                detail['isHarvested'] == true
-                                    ? 'Đã thu hoạch'
-                                    : 'Chưa thu hoạch'),
+                            Text(
+                              'Chi tiết luống (${details.length})',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: primaryTeal,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, color: Colors.grey),
+                              onPressed: () => Navigator.pop(context),
+                            ),
                           ],
                         ),
-                      ),
+                        const Divider(height: 16),
+                        if (details.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Center(
+                              child: Text(
+                                  'Chưa có danh sách luống cho đợt này.',
+                                  style: TextStyle(color: Colors.grey)),
+                            ),
+                          )
+                        else
+                          Flexible(
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: details.length,
+                              separatorBuilder: (context, index) =>
+                                  const Divider(),
+                              itemBuilder: (context, index) {
+                                final detail = details[index];
+                                final isHarvested =
+                                    detail['isHarvested'] == true;
+                                return ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(
+                                    detail['bedName']?.toString() ?? 'Luống',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const SizedBox(height: 4),
+                                      Text(
+                                          'Sản lượng: ${detail['cropQuantity'] ?? 0} kg'),
+                                      Text(
+                                          'Từ: ${_formatDateStr(detail['startDate']?.toString())} - Đến: ${_formatDateStr(detail['endDate']?.toString())}'),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            isHarvested
+                                                ? Icons.check_circle
+                                                : Icons.pending_actions,
+                                            size: 16,
+                                            color: isHarvested
+                                                ? Colors.green
+                                                : Colors.orange,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            isHarvested
+                                                ? 'Đã thu hoạch'
+                                                : 'Đang chờ',
+                                            style: TextStyle(
+                                              color: isHarvested
+                                                  ? Colors.green
+                                                  : Colors.orange,
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  trailing: OutlinedButton(
+                                    onPressed: () async {
+                                      final result = await showDialog(
+                                        context: context,
+                                        builder: (context) =>
+                                            UpdateHarvestDetailDialog(
+                                                detail: detail),
+                                      );
+                                      if (result == true) {
+                                        setStateDialog(
+                                            () {}); // Reload FutureBuilder
+                                        _fetchHarvests(); // Update outside progress
+                                      }
+                                    },
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: primaryTeal,
+                                      side:
+                                          const BorderSide(color: primaryTeal),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12),
+                                      minimumSize: const Size(0, 36),
+                                    ),
+                                    child: const Text('Cập nhật'),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
                     ),
-                  ],
-                ),
-              );
-            },
-          ),
+                  );
+                },
+              ),
+            );
+          },
         );
       },
-    );
-  }
-
-  Widget _buildDetailRow(String label, String? value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-              flex: 2,
-              child: Text(label,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, color: Colors.grey))),
-          Expanded(
-              flex: 3,
-              child: Text(value ?? 'N/A',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, color: Colors.black87),
-                  textAlign: TextAlign.right)),
-        ],
-      ),
     );
   }
 
@@ -752,6 +805,36 @@ class _HarvestScreenState extends State<HarvestScreen> {
       return DateFormat('dd/MM/yyyy').format(DateTime.parse(dateStr).toLocal());
     } catch (e) {
       return dateStr;
+    }
+  }
+
+  void _showUpdateDialog(Map<String, dynamic> harvest) async {
+    final id = harvest['harvestId']?.toString();
+    if (id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lỗi: Không tìm thấy ID đợt thu hoạch')),
+      );
+      return;
+    }
+
+    final result = await showDialog(
+      context: context,
+      builder: (context) => UpdateHarvestDialog(
+        harvestId: id,
+        initialDate: harvest['expectedDate'] != null
+            ? DateTime.tryParse(harvest['expectedDate'].toString())
+            : null,
+        initialQuantity:
+            double.tryParse(harvest['expectedQuantity']?.toString() ?? '0') ??
+                0.0,
+        initialUnit: harvest['unit']?.toString() ?? 'kg',
+        initialStatus: harvest['status']?.toString() ?? 'pending',
+        initialNotes: harvest['notes']?.toString() ?? '',
+      ),
+    );
+
+    if (result == true) {
+      _fetchHarvests(); // Reload list if updated successfully
     }
   }
 }

@@ -130,6 +130,55 @@ class HarvestService {
     }
   }
 
+  static Future<bool> updateHarvest({
+    required String harvestId,
+    required DateTime expectedDate,
+    required double expectedQuantity,
+    required String unit,
+    required String status,
+    required String notes,
+  }) async {
+    try {
+      final Map<String, dynamic> body = {
+        "expectedDate":
+            expectedDate.toIso8601String().split('T')[0], // Format: YYYY-MM-DD
+        "expectedQuantity": expectedQuantity,
+        "unit": unit,
+        "status": status,
+        "notes": notes,
+      };
+
+      final response =
+          await ApiClient.instance.put('/api/harvests/$harvestId', body: body);
+      return response != null && response['success'] == true;
+    } catch (e) {
+      if (kDebugMode) debugPrint('Lỗi update harvest: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> updateHarvestDetail({
+    required String harvestDetailId,
+    required double cropQuantity,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    try {
+      final Map<String, dynamic> body = {
+        "cropQuantity": cropQuantity,
+        "startDate": startDate.toIso8601String().split('T')[0],
+        "endDate": endDate.toIso8601String().split('T')[0],
+      };
+
+      final response = await ApiClient.instance
+          .put('/api/harvest-details/$harvestDetailId', body: body);
+      return response != null && response['success'] == true;
+    } catch (e) {
+      if (kDebugMode) debugPrint('Lỗi update harvest detail: $e');
+      return false;
+    }
+  }
+
   static Future<Map<String, dynamic>?> getHarvestDetail(String id) async {
     try {
       // Gọi API trực tiếp nếu id truyền vào là harvestDetailId

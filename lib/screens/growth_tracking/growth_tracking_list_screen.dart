@@ -65,9 +65,13 @@ class _GrowthTrackingListScreenState extends State<GrowthTrackingListScreen> {
         return bDate.compareTo(aDate);
       });
 
+      final latestTrackings = filteredTrackings.isNotEmpty
+          ? [filteredTrackings.first]
+          : <GrowthTracking>[];
+
       if (mounted) {
         setState(() {
-          _trackings = filteredTrackings;
+          _trackings = latestTrackings;
           _isLoading = false;
         });
       }

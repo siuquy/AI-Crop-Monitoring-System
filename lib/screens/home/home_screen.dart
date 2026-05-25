@@ -11,7 +11,7 @@ import '../../core/service/weather_service.dart';
 import '../../models/task_model.dart';
 import '../../models/worker.dart';
 import 'harvest_screen.dart';
-import 'growth_tracking_screen.dart';
+import '../growth_tracking/growth_tracking_screen.dart';
 
 const Color primaryTeal = Color(0xFF10B981); // Mint Green
 const Color darkTeal = Color(0xFF059669);

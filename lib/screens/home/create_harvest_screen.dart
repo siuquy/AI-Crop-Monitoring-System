@@ -650,7 +650,8 @@ class _CreateHarvestScreenState extends State<CreateHarvestScreen> {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
-      keyboardType: keyboardType,
+      keyboardType: keyboardType ??
+          (maxLines > 1 ? TextInputType.multiline : TextInputType.text),
       validator: validator,
       decoration: InputDecoration(
         labelText: label,

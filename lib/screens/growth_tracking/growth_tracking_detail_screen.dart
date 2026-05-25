@@ -438,7 +438,6 @@ class _GrowthTrackingDetailScreenState
           TextField(
             controller: _noteController,
             maxLines: 3,
-            keyboardType: TextInputType.multiline,
             decoration: InputDecoration(
               hintText: 'Nhập nhận xét tình hình sinh trưởng...',
               border:
