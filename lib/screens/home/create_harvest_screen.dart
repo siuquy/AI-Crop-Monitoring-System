@@ -163,7 +163,7 @@ class _CreateHarvestScreenState extends State<CreateHarvestScreen> {
       quantity: double.tryParse(_quantityController.text.trim()) ?? 0.0,
       unit: _selectedUnit,
       quality: _selectedQuality,
-      harvestDate: _harvestDate,
+      harvestDate: _harvestDate.toUtc(),
       notes: _notesController.text.trim(),
       image: _selectedImage,
     );

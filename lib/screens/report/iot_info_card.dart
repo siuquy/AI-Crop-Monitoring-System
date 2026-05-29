@@ -179,8 +179,6 @@ class _IotInfoCardState extends State<IotInfoCard> {
                     'Độ ẩm', Colors.blue),
                 _buildIotMetric(Icons.grass, '${_latestData!.soilMoisture}%',
                     'Ẩm đất', Colors.brown),
-                _buildIotMetric(Icons.light_mode, '${_latestData!.light}',
-                    'Ánh sáng', Colors.amber.shade600),
               ],
             ),
             if (_device != null) ...[

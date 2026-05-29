@@ -23,6 +23,7 @@ const Color textSecondary = Color(0xFF64748B);
 class TaskDisplayData {
   final TaskModel task;
   final String cropName;
+  final String seasonName;
   final String farmName;
   final String plotName;
   final String bedName;
@@ -30,6 +31,7 @@ class TaskDisplayData {
   TaskDisplayData(
       {required this.task,
       required this.cropName,
+      required this.seasonName,
       required this.farmName,
       required this.plotName,
       required this.bedName});
@@ -102,7 +104,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
       // Step 3: Process and resolve names from IDs. This logic is now centralized and safer.
       final seasonInfo = safeSeasonMap[initialTask.seasonId.toLowerCase()];
-      final cropName = seasonInfo?['seasonName']?.toString() ?? 'Không rõ';
+      final seasonName = seasonInfo?['seasonName']?.toString() ??
+          (initialTask.season.isNotEmpty ? initialTask.season : 'Không rõ');
+      final cropName = seasonInfo?['plantName']?.toString() ??
+          seasonInfo?['cropName']?.toString() ??
+          'Không rõ';
 
       String bedName = 'Không rõ';
       String plotName = 'Không rõ';
@@ -171,6 +177,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       return TaskDisplayData(
         task: initialTask,
         cropName: cropName,
+        seasonName: seasonName,
         farmName: farmName,
         plotName: plotName,
         bedName: bedName,
@@ -344,7 +351,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             ),
           const SizedBox(height: 8),
           Text(
-            'Loại cây: ${displayData.cropName} – Mùa vụ: ${displayData.task.season}',
+            'Mùa vụ: ${displayData.seasonName}',
             style: TextStyle(
                 color: primaryTeal, fontWeight: FontWeight.w600, fontSize: 14),
           ),

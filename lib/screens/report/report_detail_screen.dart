@@ -121,7 +121,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     runSpacing: 8,
                     children: [
                       _buildMetaItem(Icons.calendar_today_rounded,
-                          'Tạo: ${DateFormat('dd/MM/yyyy HH:mm').format(report.createdAt)}'),
+                          'Tạo: ${DateFormat('dd/MM/yyyy HH:mm').format(report.createdAt.toLocal())}'),
                       _buildMetaItem(Icons.person_rounded,
                           report.workerName ?? 'Không xác định'),
                     ],

@@ -159,7 +159,7 @@ class _GrowthTrackingDetailScreenState
         newTracking = await GrowthTrackingService.createGrowthTracking(
           harvestDetailId: '4260d675-632b-46d6-b19d-bb892e5e04f4', // MOCK ID
           stageId: '54196e39-715a-4005-aabc-9d80bca83555', // MOCK ID
-          startDate: DateTime.now(),
+          startDate: DateTime.now().toUtc(),
           healthStatus: apiHealthStatus,
           actualHeight: actualHeight,
           notes: _noteController.text.trim().isEmpty

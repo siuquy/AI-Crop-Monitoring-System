@@ -6,6 +6,7 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:acmms/models/task_model.dart';
 import '../../models/notification.dart';
+import 'api_client.dart';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin =
@@ -97,41 +98,51 @@ class NotificationService {
     await _notificationsPlugin.show(id, title, body, details, payload: payload);
   }
 
-  static Future<List<NotificationModel>> getNotifications() async {
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    return _getMockNotifications();
+  static Future<List<NotificationModel>> getNotifications({
+    bool unreadOnly = false,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      final response = await ApiClient.instance.get(
+          '/api/Notifications?unreadOnly=$unreadOnly&page=$page&pageSize=$pageSize');
+      if (response != null &&
+          response['success'] == true &&
+          response['data'] != null) {
+        final data = response['data'] as List<dynamic>;
+        return data
+            .map((json) =>
+                NotificationModel.fromJson(json as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
   }
 
-  static List<NotificationModel> _getMockNotifications() {
-    return [
-      NotificationModel(
-        id: '1',
-        title: 'Công việc mới được giao',
-        body: 'Bạn có một công việc mới: "Tưới nước cho ruộng cà chua A".',
-        createdAt: DateTime.now().subtract(const Duration(minutes: 30)),
-        type: NotificationType.taskAssigned,
-        entityId: 'task_123',
-      ),
-      NotificationModel(
-        id: '2',
-        title: 'Báo cáo đã được duyệt',
-        body:
-            'Báo cáo "Sâu bệnh hại lúa" của bạn đã được chuyên gia phê duyệt.',
-        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-        type: NotificationType.reportApproved,
-        isRead: true,
-        entityId: 'report_1',
-      ),
-      NotificationModel(
-        id: '3',
-        title: 'Yêu cầu bổ sung báo cáo',
-        body:
-            'Báo cáo "Tình trạng cây ngô" cần bổ sung thêm hình ảnh rõ nét hơn.',
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-        type: NotificationType.reportNeedsUpdate,
-        entityId: 'report_3',
-      ),
-    ];
+  static Future<int> getUnreadCount() async {
+    try {
+      final response =
+          await ApiClient.instance.get('/api/Notifications/unread-count');
+      if (response != null &&
+          response['success'] == true &&
+          response['data'] != null) {
+        return int.tryParse(response['data'].toString()) ?? 0;
+      }
+      return 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  static Future<bool> markAllAsRead() async {
+    try {
+      final response =
+          await ApiClient.instance.put('/api/Notifications/read-all');
+      return response != null && response['success'] == true;
+    } catch (e) {
+      return false;
+    }
   }
 }

@@ -246,117 +246,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _TaskSummary(todo: todo, doing: doing, done: done),
-                    const SizedBox(height: 24),
-                    Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const GrowthTrackingScreen(),
-                            ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(16),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade50,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.spoke_rounded,
-                                  color: Colors.blue.shade700,
-                                  size: 28,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Theo dõi sinh trưởng',
-                                        style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold)),
-                                    SizedBox(height: 4),
-                                    Text('Kiểm tra tiến độ và tình trạng cây',
-                                        style: TextStyle(
-                                            fontSize: 13, color: Colors.grey)),
-                                  ],
-                                ),
-                              ),
-                              const Icon(Icons.chevron_right_rounded,
-                                  color: Colors.grey),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const HarvestScreen(),
-                            ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(16),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: primaryTeal.withOpacity(0.1),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.eco_rounded,
-                                  color: primaryTeal,
-                                  size: 28,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Báo cáo Thu hoạch',
-                                        style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold)),
-                                    SizedBox(height: 4),
-                                    Text('Ghi nhận sản lượng nông sản',
-                                        style: TextStyle(
-                                            fontSize: 13, color: Colors.grey)),
-                                  ],
-                                ),
-                              ),
-                              const Icon(Icons.chevron_right_rounded,
-                                  color: Colors.grey),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
                     const SizedBox(height: 32),
                     const Text('Nhiệm vụ hôm nay',
                         style: TextStyle(
@@ -373,6 +262,135 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       bottomNavigationBar: const AppBottomNav(currentTab: BottomTab.home),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showActionMenu(context),
+        backgroundColor: primaryTeal,
+        elevation: 4,
+        child: const Icon(Icons.assignment_rounded, color: Colors.white),
+      ),
+    );
+  }
+
+  void _showActionMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text(
+                'Tùy chọn công việc',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 20),
+              _buildMenuOption(
+                context: context,
+                icon: Icons.spoke_rounded,
+                color: Colors.blue.shade600,
+                title: 'Theo dõi sinh trưởng',
+                subtitle: 'Kiểm tra tiến độ và tình trạng cây',
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const GrowthTrackingScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildMenuOption(
+                context: context,
+                icon: Icons.eco_rounded,
+                color: primaryTeal,
+                title: 'Báo cáo Thu hoạch',
+                subtitle: 'Ghi nhận sản lượng nông sản',
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const HarvestScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMenuOption({
+    required BuildContext context,
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.1)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(subtitle,
+                      style:
+                          TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
+          ],
+        ),
+      ),
     );
   }
 
@@ -589,10 +607,7 @@ class _Header extends StatelessWidget {
           icon: const Icon(Icons.notifications_active_outlined,
               color: Colors.white, size: 28),
           onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const NotificationScreen()),
-            );
+            NotificationScreen.showRightPanel(context);
           },
         ),
       ],
@@ -656,6 +671,45 @@ class _WeatherCardState extends State<_WeatherCard> {
     }
   }
 
+  List<String> _getWeatherSuggestions(Map<String, dynamic> data) {
+    List<String> suggestions = [];
+    final num? humidity = data['humidity'] as num?;
+    final num? temperature = data['temperature'] as num?;
+    final String description =
+        data['description']?.toString().toLowerCase() ?? '';
+    final num? windSpeed = data['windSpeed'] as num?;
+
+    if (humidity != null && humidity < 50) {
+      suggestions.add(
+          "Độ ẩm thấp, nên kiểm tra độ ẩm đất và tưới nước vào sáng sớm hoặc chiều mát.");
+    }
+    if (temperature != null && temperature >= 32) {
+      suggestions
+          .add("Nhiệt độ cao, tránh phun thuốc hoặc bón phân vào giữa trưa.");
+    }
+    if (description.contains("rain") ||
+        description.contains("mưa") ||
+        description.contains("shower") ||
+        description.contains("drizzle")) {
+      suggestions.add(
+          "Có khả năng mưa, nên hoãn phun thuốc và kiểm tra thoát nước cho luống.");
+    }
+    if (windSpeed != null && windSpeed >= 8) {
+      suggestions
+          .add("Gió mạnh, không nên phun thuốc để tránh thuốc bị bay lệch.");
+    }
+    if (humidity != null && humidity >= 80) {
+      suggestions.add("Độ ẩm cao, cần theo dõi nấm bệnh và sâu bệnh trên lá.");
+    }
+
+    if (suggestions.isEmpty) {
+      suggestions.add(
+          "Thời tiết ổn định, tiếp tục theo dõi cây trồng và thực hiện công việc theo lịch.");
+    }
+
+    return suggestions;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -669,7 +723,8 @@ class _WeatherCardState extends State<_WeatherCard> {
     }
 
     if (_weatherData == null) {
-      return _buildLoadingOrErrorCard(const Text('Không có dữ liệu thời tiết',
+      return _buildLoadingOrErrorCard(const Text(
+          'Chưa có dữ liệu thời tiết để đưa ra gợi ý.',
           style: TextStyle(color: Colors.white)));
     }
 
@@ -683,6 +738,8 @@ class _WeatherCardState extends State<_WeatherCard> {
         'https://cdn.weatherapi.com/weather/64x64/day/113.png';
     final cityName = _weatherData!['cityName'] ?? 'Vị trí của bạn';
 
+    final suggestions = _getWeatherSuggestions(_weatherData!);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -690,41 +747,85 @@ class _WeatherCardState extends State<_WeatherCard> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withOpacity(0.1)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Image.network(iconUrl, width: 56, height: 56),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$temperature°C - ${description[0].toUpperCase()}${description.substring(1)}',
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  cityName,
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
             children: [
-              _WeatherInfo(
-                  icon: Icons.water_drop, label: 'Độ ẩm', value: '$humidity%'),
-              const SizedBox(height: 4),
-              _WeatherInfo(
-                  icon: Icons.air, label: 'Gió', value: '$windSpeed m/s'),
+              Image.network(iconUrl, width: 56, height: 56),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$temperature°C - ${description[0].toUpperCase()}${description.substring(1)}',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      cityName,
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _WeatherInfo(
+                      icon: Icons.water_drop,
+                      label: 'Độ ẩm',
+                      value: '$humidity%'),
+                  const SizedBox(height: 4),
+                  _WeatherInfo(
+                      icon: Icons.air, label: 'Gió', value: '$windSpeed m/s'),
+                ],
+              ),
             ],
           ),
+          const SizedBox(height: 12),
+          const Divider(color: Colors.white24, height: 1),
+          const SizedBox(height: 12),
+          const Row(
+            children: [
+              Icon(Icons.lightbulb_outline, color: Colors.yellow, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'Gợi ý chăm sóc theo thời tiết',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...suggestions.map((s) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 4, right: 6),
+                      child: Icon(Icons.circle, color: Colors.white70, size: 6),
+                    ),
+                    Expanded(
+                      child: Text(
+                        s,
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
         ],
       ),
     );

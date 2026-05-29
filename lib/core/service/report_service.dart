@@ -128,6 +128,8 @@ class ReportService {
         'title': title,
         'description': finalDescription,
         'reportType': reportType,
+        'submitDate': DateTime.now().toUtc().toIso8601String(),
+        'createdAt': DateTime.now().toUtc().toIso8601String(),
       };
 
       if (diseaseName != null && diseaseName.isNotEmpty)

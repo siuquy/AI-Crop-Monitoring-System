@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../core/service/report_service.dart';
 import '../../core/service/api_client.dart';
 import '../../core/service/farm_service.dart';
@@ -719,7 +720,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 tooltip: 'Thêm vào mô tả',
                 onPressed: () {
                   final appendText =
-                      '\n\n--- Dữ liệu IoT ---\nNhiệt độ: ${_latestIotData!.temperature}°C\nĐộ ẩm: ${_latestIotData!.humidity}%\nĐộ ẩm đất: ${_latestIotData!.soilMoisture}%\nÁnh sáng: ${_latestIotData!.light} lux';
+                      '\n\n--- Dữ liệu IoT ---\nNhiệt độ: ${_latestIotData!.temperature}°C\nĐộ ẩm: ${_latestIotData!.humidity}%\nĐộ ẩm đất: ${_latestIotData!.soilMoisture}%';
                   setState(() {
                     _descriptionController.text =
                         _descriptionController.text + appendText;
@@ -743,8 +744,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                   'Độ ẩm', Colors.blue),
               _buildIotMetric(Icons.grass, '${_latestIotData!.soilMoisture}%',
                   'Ẩm đất', Colors.brown),
-              _buildIotMetric(Icons.light_mode, '${_latestIotData!.light}',
-                  'Ánh sáng', Colors.amber.shade600),
             ],
           ),
           if (_associatedDevice != null) ...[
@@ -758,7 +757,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '${_associatedDevice!.name} • ${_latestIotData!.recordedAt != null ? _latestIotData!.recordedAt!.toLocal().toString().substring(0, 16) : 'N/A'}',
+                    '${_associatedDevice!.name} • ${_latestIotData!.recordedAt != null ? DateFormat('dd/MM/yyyy HH:mm').format(_latestIotData!.recordedAt!.toLocal()) : 'N/A'}',
                     style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade600,
@@ -914,7 +913,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(10)),
                   backgroundColor: const Color(0xFF10B981),
                   foregroundColor: Colors.white,
                   elevation: 0,

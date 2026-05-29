@@ -2,6 +2,7 @@ enum NotificationType {
   taskAssigned,
   reportApproved,
   reportNeedsUpdate,
+  sensorAlert,
   general,
 }
 
@@ -26,12 +27,14 @@ class NotificationModel {
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      body: json['body'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      isRead: json['isRead'] as bool? ?? false,
-      type: _mapType(json['type'] as String?),
+      id: json['noteId'] ?? json['id'] ?? '',
+      title: json['noteTitle'] ?? json['title'] ?? '',
+      body: json['noteMessage'] ?? json['body'] ?? '',
+      createdAt: DateTime.parse(json['noteCreatedAt'] ??
+          json['createdAt'] ??
+          DateTime.now().toIso8601String()),
+      isRead: json['noteStatus'] == 'read' || json['isRead'] == true,
+      type: _mapType(json['noteType'] ?? json['type']),
       entityId: json['entityId'] as String?,
     );
   }
@@ -44,6 +47,8 @@ class NotificationModel {
         return NotificationType.reportApproved;
       case 'report_needs_update':
         return NotificationType.reportNeedsUpdate;
+      case 'sensor_alert':
+        return NotificationType.sensorAlert;
       default:
         return NotificationType.general;
     }

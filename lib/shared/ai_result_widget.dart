@@ -263,13 +263,6 @@ class _AiResultWidgetState extends State<AiResultWidget>
                           'Ẩm đất',
                           Colors.brown,
                         ),
-                      if (iotData['lightIntensity'] != null)
-                        _buildMetric(
-                          Icons.light_mode,
-                          '${iotData['lightIntensity']} lux',
-                          'Ánh sáng',
-                          Colors.amber.shade600,
-                        ),
                     ],
                   ),
                 ],
